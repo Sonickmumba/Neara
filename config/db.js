@@ -15,11 +15,11 @@ const pool = new Pool({
 // Test connection
 pool.connect()
   .then(client => {
-    console.log('✓ localloop Database connected successfully');
+    console.log('✓ Neara Database connected successfully');
     client.release();
   })
   .catch(err => {
-    console.error('Error connecting to localloop database:', err.message);
+    console.error('Error connecting to Neara database:', err.message);
   });
 
 
