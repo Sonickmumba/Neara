@@ -80,17 +80,6 @@ app.get('/api/status', (req, res) => {
 
 
 
-// Serve static files from React build
-const staticPath = path.join(__dirname, 'views', 'dist');
-app.use(express.static(staticPath));
-
-// app.get(/.*/, (req, res) => {
-//   res.sendFile(path.join(staticPath, 'index.html'));
-// });
-
-
-
-
 
 
 /* ======================
