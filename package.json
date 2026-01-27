@@ -7,10 +7,26 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sonickmumba/Neara.git"
+  },
   "keywords": [],
-  "author": "",
+  "author": "Sonick Mumba",
   "license": "ISC",
   "dependencies": {
-    "pg": "^8.17.2"
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "express-validator": "^7.3.1",
+    "nodemon": "^3.1.11",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "pg": "^8.17.2",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0"
   }
 }
