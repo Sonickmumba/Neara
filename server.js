@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 
 // const http = require('http');
 // const { Server } = require('socket.io');
@@ -9,7 +10,7 @@ const session = require('express-session');
 // const passport = require('passport');
 
 const dotenv = require('dotenv');
-const db = require('./config/db');
+const db = require('./config/database');
 
 const securityHeaders = require('./middleware/securityHeaders');
 
@@ -71,7 +72,25 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes here
 
+app.get('/api/status', (req, res) => {
+  res.json({ success: true, message: 'API is running' });
+});
+
 // ==========
+
+
+
+// Serve static files from React build
+const staticPath = path.join(__dirname, 'views', 'dist');
+app.use(express.static(staticPath));
+
+// app.get(/.*/, (req, res) => {
+//   res.sendFile(path.join(staticPath, 'index.html'));
+// });
+
+
+
+
 
 
 /* ======================
