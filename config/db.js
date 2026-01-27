@@ -4,11 +4,11 @@ require('dotenv').config;
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'localloop',
+  database: process.env.DB_NAME || 'Neara',
   password: process.env.DB_PASSWORD || '',
-  port: 5432,
-  max: 10,                  // connectionLimit equivalent
-  idleTimeoutMillis: 30000, // close idle clients after 30s
+  port: process.env.DB_PORT || 5432,
+  max: 10,
+  idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });
 
