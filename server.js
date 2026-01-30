@@ -16,6 +16,7 @@ const securityHeaders = require('./middleware/securityHeaders');
 
 // imports routes here
 const authRoutes = require('./routes/authRoute');
+const listingsRoutes = require('./routes/listingRoute');
 
 // Load environment variables
 dotenv.config();
@@ -75,6 +76,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes here
 app.use('/api/auth', authRoutes);
+app.use('/api/listings', listingsRoutes);
+
 
 app.get('/api/status', (req, res) => {
   res.json({ success: true, message: 'API is running' });
