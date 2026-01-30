@@ -7,12 +7,15 @@ const path = require('path');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
-// const passport = require('passport');
+const passport = require('passport');
 
 const dotenv = require('dotenv');
 const db = require('./config/database');
 
 const securityHeaders = require('./middleware/securityHeaders');
+
+// imports routes here
+const authRoutes = require('./routes/authRoute');
 
 // Load environment variables
 dotenv.config();
@@ -63,14 +66,15 @@ app.use(
 );
 
 // 🔐 Passport middleware here
-// app.use(passport.initialize());
-// app.use(passport.session());
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Middleware to parse JSON requests here
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes here
+app.use('/api/auth', authRoutes);
 
 app.get('/api/status', (req, res) => {
   res.json({ success: true, message: 'API is running' });
