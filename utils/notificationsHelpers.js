@@ -1,4 +1,4 @@
-const pool = require('../config/db'); // pg Pool
+const pool = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
 /**
