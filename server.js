@@ -15,8 +15,10 @@ const db = require('./config/database');
 const securityHeaders = require('./middleware/securityHeaders');
 
 // imports routes here
-const authRoutes = require('./routes/authRoute');
-const listingsRoutes = require('./routes/listingRoute');
+const authRoutes = require('./routes/authRoutes');
+const listingsRoutes = require('./routes/listingRoutes');
+const usersRoutes = require('./routes/userRoutes');
+const notificationsRoutes = require('./routes/notificationRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -77,6 +79,8 @@ app.use(express.urlencoded({ extended: true }));
 // API Routes here
 app.use('/api/auth', authRoutes);
 app.use('/api/listings', listingsRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 
 app.get('/api/status', (req, res) => {

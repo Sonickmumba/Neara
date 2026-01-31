@@ -40,8 +40,76 @@ const timeAgo = (date) => {
   return Math.floor(seconds) + ' second' + (Math.floor(seconds) > 1 ? 's' : '') + ' ago';
 };
 
+// Calculate user badges based on their activity
+const calculateUserBadges = (userData) => {
+  const badges = [];
+  
+  const { 
+    completedTrades = 0, 
+    rating = 0, 
+    totalRatings = 0,
+    created_at 
+  } = userData;
+  
+  // Trusted Trader - 10+ completed trades with 4.5+ rating
+  if (completedTrades >= 10 && rating >= 4.5 && totalRatings >= 5) {
+    badges.push({
+      id: 'trusted-trader',
+      name: 'Trusted Trader',
+      icon: '⭐',
+      color: 'gold'
+    });
+  }
+  
+  // Top Rated - 4.8+ rating with 10+ reviews
+  if (rating >= 4.8 && totalRatings >= 10) {
+    badges.push({
+      id: 'top-rated',
+      name: 'Top Rated',
+      icon: '🏆',
+      color: 'purple'
+    });
+  }
+  
+  // Early Adopter - member for 6+ months
+  if (created_at) {
+    const accountAge = (new Date() - new Date(created_at)) / (1000 * 60 * 60 * 24 * 30);
+    if (accountAge >= 6) {
+      badges.push({
+        id: 'early-adopter',
+        name: 'Early Adopter',
+        icon: '🌟',
+        color: 'blue'
+      });
+    }
+  }
+  
+  // Active Trader - 5+ completed trades
+  if (completedTrades >= 5) {
+    badges.push({
+      id: 'active-trader',
+      name: 'Active Trader',
+      icon: '🔥',
+      color: 'orange'
+    });
+  }
+  
+  // Verified - has verified phone and email
+  if (userData.phone_verified && userData.email_verified) {
+    badges.push({
+      id: 'verified',
+      name: 'Verified',
+      icon: '✓',
+      color: 'green'
+    });
+  }
+  
+  return badges;
+};
+
 module.exports = {
   generateId,
   calculateDistance,
-  timeAgo
+  timeAgo,
+  calculateUserBadges
 };

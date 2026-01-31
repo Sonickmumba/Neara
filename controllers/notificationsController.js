@@ -20,7 +20,7 @@ exports.createNotification = async (
     const result = await pool.query(query, values);
     return result.rows[0];
   } catch (error) {
-    console.error('Error creating notification:', error);
+    // console.error('Error creating notification:', error);
     throw error;
   }
 };
