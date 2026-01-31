@@ -21,6 +21,9 @@ const usersRoutes = require('./routes/userRoutes');
 const notificationsRoutes = require('./routes/notificationRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const tradeRoutes = require('./routes/tradeRoutes');
+const favoriteRoutes = require('./routes/favoriteRoutes');
+const activityRoutes = require('./routes/activityRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -85,6 +88,9 @@ app.use('/api/users', usersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/trades', tradeRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/activity', activityRoutes);
 
 
 app.get('/api/status', (req, res) => {
