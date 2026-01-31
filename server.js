@@ -20,6 +20,7 @@ const listingsRoutes = require('./routes/listingRoutes');
 const usersRoutes = require('./routes/userRoutes');
 const notificationsRoutes = require('./routes/notificationRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -83,6 +84,7 @@ app.use('/api/listings', listingsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 
 app.get('/api/status', (req, res) => {
