@@ -213,7 +213,6 @@ exports.sendMessage = async (req, res, next) => {
       [userId]
     );
     const senderName = senderResult.rows[0]?.name || 'Unknown User';
-    console.log('SENDER NAME:', senderName);
 
     const notificationId = generateId();
     await pool.query(
