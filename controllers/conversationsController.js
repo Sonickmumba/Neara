@@ -169,10 +169,6 @@ exports.sendMessage = async (req, res, next) => {
     const userId = req.user.id;
     const io = req.app.get('io');
 
-    console.log('CONVERSATION ID:', conversationId);
-    console.log('SENDER ID:', userId);
-    console.log('CONTENT:', content);
-
     // check if user is part of the conversation
     const conversationResult = await pool.query(
       `SELECT * FROM conversations WHERE id = $1 AND (participant1_id = $2 OR participant2_id = $3)`,
