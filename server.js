@@ -7,12 +7,23 @@ const path = require('path');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
-// const passport = require('passport');
+const passport = require('passport');
 
 const dotenv = require('dotenv');
 const db = require('./config/database');
 
 const securityHeaders = require('./middleware/securityHeaders');
+
+// imports routes here
+const authRoutes = require('./routes/authRoutes');
+const listingsRoutes = require('./routes/listingRoutes');
+const usersRoutes = require('./routes/userRoutes');
+const notificationsRoutes = require('./routes/notificationRoutes');
+const conversationRoutes = require('./routes/conversationRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const tradeRoutes = require('./routes/tradeRoutes');
+const favoriteRoutes = require('./routes/favoriteRoutes');
+const activityRoutes = require('./routes/activityRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -63,14 +74,24 @@ app.use(
 );
 
 // 🔐 Passport middleware here
-// app.use(passport.initialize());
-// app.use(passport.session());
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Middleware to parse JSON requests here
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes here
+app.use('/api/auth', authRoutes);
+app.use('/api/listings', listingsRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/trades', tradeRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/activity', activityRoutes);
+
 
 app.get('/api/status', (req, res) => {
   res.json({ success: true, message: 'API is running' });
