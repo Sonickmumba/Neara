@@ -1,12 +1,26 @@
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  // useNavigate,
+} from 'react-router-dom';
+
 import './App.css';
 
-import { SplashScreen } from './features/splash/SplashScreen';
+import { Welcome } from './features/splash/Welcome';
+import { Toaster } from 'sonner';
 
 function App() {
   return (
-    <div className="min-h-screen bg-white">
-      <SplashScreen />
-    </div>
+    <>
+      <Toaster position="top-center" richColors />
+      <div className="min-h-screen bg-white">
+        <Routes>
+          <Route path="/" element={<Welcome />} />
+        </Routes>
+      </div>
+    </>
   );
 }
 

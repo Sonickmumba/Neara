@@ -1,11 +1,17 @@
+import { useNavigate } from "react-router-dom";
 
+export function SplashScreen() {
+  const navigate = useNavigate();
+  
+  const onNext = () => {
+    navigate('/welcome');
+  };
 
-export function SplashScreen({ onNext }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="text-center text-white mb-12">
         <div className="text-6xl mb-6">🎉</div>
-        <h1 className="mb-4 text-white">Welcome to LocalLoop</h1>
+        <h1 className="mb-4 text-white">Welcome to Neara</h1>
         <p className="text-xl opacity-90">Your neighborhood community platform</p>
       </div>
 
