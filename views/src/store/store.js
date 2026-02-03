@@ -1,14 +1,14 @@
 import { configureStore } from '@reduxjs/toolkit';
+import locationPermissionReducer from '../features/splash/location/locationPermissionSlice';
 
 const store = configureStore({
   reducer: {
-    // location: locationReducer,
+    locationPermission: locationPermissionReducer,
     // auth: authReducer,
     // homeFeed: homeFeedReducer,
     // listings: listingsReducer,
     // notifications: notificationsReducer,
     // user: userReducer,
-    
   },
 });
 
