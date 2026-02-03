@@ -9,6 +9,7 @@ import {
 import './App.css';
 
 import { Welcome } from './features/splash/Welcome';
+import { LocationPermission } from './features/splash/location/LocationPermission';
 import { Toaster } from 'sonner';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
       <div className="min-h-screen bg-white">
         <Routes>
           <Route path="/" element={<Welcome />} />
+          <Route path="/location" element={<LocationPermission />} />
         </Routes>
       </div>
     </>
