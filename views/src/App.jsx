@@ -11,6 +11,7 @@ import './App.css';
 import { Welcome } from './features/splash/Welcome';
 import { LocationPermission } from './features/splash/location/LocationPermission';
 import { InterestsSelectionScreen } from './features/interest/InterestsSelection';
+import { LoginSignup } from './features/loginSignup/LoginSignup';
 import { Toaster } from 'sonner';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
           <Route path="/" element={<Welcome />} />
           <Route path="/location" element={<LocationPermission />} />
           <Route path="/interests-selection" element={<InterestsSelectionScreen />} />
+          <Route path="/loginSignup" element={<LoginSignup />} />
         </Routes>
       </div>
     </>
