@@ -23,7 +23,7 @@ router.post(
       .withMessage(
         'Password must contain at least one uppercase letter, one lowercase letter, and one number'
       ),
-    body('phone').trim().notEmpty().withMessage('Phone is required'),
+    // body('phone').trim().notEmpty().withMessage('Phone is required'),
   ],
   authController.register
 );
