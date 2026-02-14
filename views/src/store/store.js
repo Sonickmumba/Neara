@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import locationPermissionReducer from '../features/splash/location/locationPermissionSlice';
 import interestsReducer from './../features/interest/interestsSelectionSlice';
 import authReducer from '../features/loginSignup/authSlice';
+import homeFeedReducer from '../features/homeScreen/homeFeedSlice';
 
 const store = configureStore({
   reducer: {
@@ -10,7 +11,7 @@ const store = configureStore({
     auth: authReducer,
     
     // auth: authReducer,
-    // homeFeed: homeFeedReducer,
+    homeFeed: homeFeedReducer,
     // listings: listingsReducer,
     // notifications: notificationsReducer,
     // user: userReducer,

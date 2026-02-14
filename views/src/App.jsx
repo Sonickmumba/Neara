@@ -12,6 +12,8 @@ import { Welcome } from './features/splash/Welcome';
 import { LocationPermission } from './features/splash/location/LocationPermission';
 import { InterestsSelectionScreen } from './features/interest/InterestsSelection';
 import { LoginSignup } from './features/loginSignup/LoginSignup';
+import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerification';
+import { HomeFeed } from './features/homeScreen/HomeFeed';
 import { Toaster } from 'sonner';
 
 function App() {
@@ -24,6 +26,12 @@ function App() {
           <Route path="/location" element={<LocationPermission />} />
           <Route path="/interests-selection" element={<InterestsSelectionScreen />} />
           <Route path="/loginSignup" element={<LoginSignup />} />
+          <Route path="/verifyPhone" element={<PhoneVerificationScreen />} />
+
+          <Route path="/homeFeed" element={<HomeFeed />}>
+            {/* <Route index element={<Navigate to="/homeFeed/all" />} /> */}
+            {/* <Route path="/user-profile/:userId" element={<UserProfile  />} /> */}
+          </Route>
         </Routes>
       </div>
     </>
