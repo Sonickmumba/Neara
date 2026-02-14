@@ -74,14 +74,11 @@ exports.register = async (req, res, next) => {
         const placeholders = interests.map((_, i) => `($1, $${i + 2})`).join(',');
         const values = [userId, ...interests];
         
-        console.log('Inserting interests:', { userId, interests, placeholders, values });
-        
         await pool.query(
           `INSERT INTO user_interests (user_id, interest_id) VALUES ${placeholders}`,
           values
         );
       } catch (interestErr) {
-        console.error('Error inserting interests:', interestErr);
         throw interestErr;
       }
     }
