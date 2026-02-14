@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import axios from 'axios';
+import apiClient from '../services/api';
 import { toast } from 'sonner';
 
 export function useFavoriteToggle({
@@ -18,9 +18,8 @@ export function useFavoriteToggle({
 
     async function fetchStatus() {
       try {
-        const res = await axios.get(
-          `http://localhost:3000/api/favorites/check/${listingId}`,
-          { withCredentials: true }
+        const res = await apiClient.get(
+          `/api/favorites/check/${listingId}`
         );
 
         if (mounted) {
@@ -56,17 +55,15 @@ export function useFavoriteToggle({
 
     try {
       if (nextState) {
-        await axios.post(
-          'http://localhost:3000/api/favorites',
-          { listingId },
-          { withCredentials: true }
+        await apiClient.post(
+          `/api/favorites`,
+          { listingId }
         );
         // ✅ Show success toast ONLY after API succeeds
         toast.success('Added to favorites');
       } else {
-        await axios.delete(
-          `http://localhost:3000/api/favorites/${listingId}`,
-          { withCredentials: true }
+        await apiClient.delete(
+          `/api/favorites/${listingId}`
         );
         // ✅ Show success toast ONLY after API succeeds
         toast.success('Removed from favorites');
