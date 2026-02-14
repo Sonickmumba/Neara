@@ -10,19 +10,36 @@ export const registerUser = createAsyncThunk(
   async (formData, { getState, rejectWithValue }) => {
     try {
       // 🔑 pull interests from interests slice
-      const interests = getState().interests.selectedCategoryIds;
+      const state = getState();
+      const interests = state.interests?.selectedCategoryIds || [];
+      const coords = state.locationPermission?.coords || null;
+      
+      console.log('Registration payload:', { formData, interests, coords });
 
+      // 🧩 combine form data with interests (and location if needed) 
       const payload = {
         ...formData,
-        interests, // ← injected here
+        interests: interests.map(id => parseInt(id, 10) || id), // Ensure IDs are properly formatted
       };
+
+      // Add location if available
+      if (coords && coords.latitude && coords.longitude) {
+        payload.location_lat = coords.latitude;
+        payload.location_lng = coords.longitude;
+      }
+
+      // Add neighborhood if available
+      if (coords?.neighborhood) {
+        payload.neighborhood = coords.neighborhood;
+      }
 
       const res = await apiClient.post('/api/auth/register', payload);
 
       return res.data;
     } catch (err) {
+      console.error('Registration error:', err);
       return rejectWithValue(
-        err.response?.data?.message || 'Registration failed'
+        err.response?.data?.message || err.message || 'Registration failed'
       );
     }
   }
