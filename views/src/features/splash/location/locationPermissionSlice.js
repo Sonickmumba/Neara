@@ -1,6 +1,34 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 /**
+ * Reverse geocoding using OpenStreetMap Nominatim API
+ * Gets neighborhood/address from coordinates
+ */
+async function getNeighborhoodFromCoords(latitude, longitude) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+    );
+    const data = await response.json();
+    
+    // Try to extract neighborhood info from address
+    const address = data.address || {};
+    const neighborhood = 
+      address.neighbourhood ||
+      address.suburb ||
+      address.village ||
+      address.town ||
+      address.city ||
+      'Unknown';
+    
+    return neighborhood;
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    return 'Unknown';
+  }
+}
+
+/**
  * Async thunk to request browser geolocation permission
  */
 export const requestLocationPermission = createAsyncThunk(
@@ -10,12 +38,17 @@ export const requestLocationPermission = createAsyncThunk(
       return rejectWithValue('Geolocation not supported');
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise( (resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          const neighborhood = await getNeighborhoodFromCoords(latitude, longitude);
+          
           resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+            latitude,
+            longitude,
+            neighborhood,
             accuracy: position.coords.accuracy,
           });
         },
