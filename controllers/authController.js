@@ -70,14 +70,20 @@ exports.register = async (req, res, next) => {
 
     // Add user interests if provided
     if (Array.isArray(interests) && interests.length > 0) {
-      const placeholders = interests.map((_, i) => `($1, $${i + 2})`).join(',');
-
-      const values = [userId, ...interests];
-
-      await pool.query(
-        `INSERT INTO user_interests (user_id, interest_id) VALUES ${placeholders}`,
-        values
-      );
+      try {
+        const placeholders = interests.map((_, i) => `($1, $${i + 2})`).join(',');
+        const values = [userId, ...interests];
+        
+        console.log('Inserting interests:', { userId, interests, placeholders, values });
+        
+        await pool.query(
+          `INSERT INTO user_interests (user_id, interest_id) VALUES ${placeholders}`,
+          values
+        );
+      } catch (interestErr) {
+        console.error('Error inserting interests:', interestErr);
+        throw interestErr;
+      }
     }
 
     req.login({ id: userId, email, name }, (err) => {
