@@ -1,5 +1,5 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import apiClient from '../../services/api';
 
 /**
  * Fetch home feed listings
@@ -13,12 +13,11 @@ export const fetchHomeFeed = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await axios.get('http://localhost:3000/api/listings', {
+      const response = await apiClient.get('/api/listings', {
         params: {
           interests: interests.join(','), // ['skills','tech'] → skills,tech
           cursor,
         },
-        withCredentials: true,
       });
 
       /**
