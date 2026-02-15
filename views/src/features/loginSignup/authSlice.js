@@ -2,6 +2,49 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../../services/api';
 
 /**
+ * SEND VERIFICATION EMAIL
+ * POST /api/auth/send-verification
+ */
+export const sendVerificationEmail = createAsyncThunk(
+  'auth/sendVerificationEmail',
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.post('/api/auth/send-verification', {
+        email,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to send verification email'
+      );
+    }
+  }
+);
+
+/**
+ * VERIFY EMAIL
+ * POST /api/auth/verify-email
+ */
+export const verifyEmail = createAsyncThunk(
+  'auth/verifyEmail',
+  async ({ email, code }, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.post('/api/auth/verify-email', {
+        email,
+        code,
+      });
+      console.log('Verify email response:', res.data);
+      return res.data;
+    } catch (err) {
+      console.error('Verify email error:', err);
+      return rejectWithValue(
+        err.response?.data?.message || 'Invalid verification code'
+      );
+    }
+  }
+);
+
+/**
  * SIGN UP
  * POST /api/auth/register
  */
@@ -13,13 +56,13 @@ export const registerUser = createAsyncThunk(
       const state = getState();
       const interests = state.interests?.selectedCategoryIds || [];
       const coords = state.locationPermission?.coords || null;
-      
+
       console.log('Registration payload:', { formData, interests, coords });
 
-      // 🧩 combine form data with interests (and location if needed) 
+      // 🧩 combine form data with interests (and location if needed)
       const payload = {
         ...formData,
-        interests: interests.map(id => parseInt(id, 10) || id), // Ensure IDs are properly formatted
+        interests: interests.map((id) => parseInt(id, 10) || id), // Ensure IDs are properly formatted
       };
 
       // Add location if available
@@ -53,16 +96,11 @@ export const loginUser = createAsyncThunk(
   'auth/loginUser',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const res = await apiClient.post(
-        '/api/auth/login',
-        { email, password }
-      );
+      const res = await apiClient.post('/api/auth/login', { email, password });
 
       return res.data;
     } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.message || 'Login failed'
-      );
+      return rejectWithValue(err.response?.data?.message || 'Login failed');
     }
   }
 );
@@ -74,11 +112,19 @@ const authSlice = createSlice({
     status: 'idle',
     error: null,
     isAuthenticated: false,
+    emailVerificationStatus: 'idle', // 'idle' | 'pending' | 'verified' | 'failed'
+    emailVerificationError: null,
+    pendingEmail: null, // Store email awaiting verification
   },
   reducers: {
     logout(state) {
       state.user = null;
       state.isAuthenticated = false;
+    },
+    resetEmailVerification(state) {
+      state.emailVerificationStatus = 'idle';
+      state.emailVerificationError = null;
+      state.pendingEmail = null;
     },
   },
   extraReducers: (builder) => {
@@ -111,9 +157,37 @@ const authSlice = createSlice({
       .addCase(loginUser.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload;
+      })
+
+      // send verification email
+      .addCase(sendVerificationEmail.pending, (state) => {
+        state.emailVerificationStatus = 'pending';
+        state.emailVerificationError = null;
+      })
+      .addCase(sendVerificationEmail.fulfilled, (state, action) => {
+        state.emailVerificationStatus = 'pending'; // Still waiting for code
+        state.pendingEmail = action.payload.email;
+      })
+      .addCase(sendVerificationEmail.rejected, (state, action) => {
+        state.emailVerificationStatus = 'failed';
+        state.emailVerificationError = action.payload;
+      })
+
+      // verify email
+      .addCase(verifyEmail.pending, (state) => {
+        state.emailVerificationStatus = 'pending';
+        state.emailVerificationError = null;
+      })
+      .addCase(verifyEmail.fulfilled, (state, action) => {
+        state.emailVerificationStatus = 'verified';
+        state.pendingEmail = null;
+      })
+      .addCase(verifyEmail.rejected, (state, action) => {
+        state.emailVerificationStatus = 'failed';
+        state.emailVerificationError = action.payload;
       });
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, resetEmailVerification } = authSlice.actions;
 export default authSlice.reducer;

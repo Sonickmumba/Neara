@@ -1,4 +1,5 @@
 // import { useState } from 'react';
+// import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -14,6 +15,7 @@ import {
   requestLocationPermission,
   skipLocationPermission,
 } from './locationPermissionSlice';
+import { toast } from 'sonner';
 
 const BENEFITS = [
   {
@@ -40,10 +42,29 @@ export function LocationPermission() {
     (state) => state.locationPermission
   );
 
+  // Auto-navigate when location is granted
+  // useEffect(() => {
+  //   if (permissionGranted) {
+  //     toast.success('Location enabled!');
+  //     const timer = setTimeout(() => {
+  //       navigate('/interests-selection');
+  //     }, 800);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [permissionGranted, navigate]);
+
+  // // Show error toast if location request failed
+  // useEffect(() => {
+  //   if (error) {
+  //     toast.error(error);
+  //   }
+  // }, [error]);
+
   const handleAllowLocation = async () => {
     const result = await dispatch(requestLocationPermission());
 
     if (requestLocationPermission.fulfilled.match(result)) {
+      toast.success('Location enabled!');
       setTimeout(() => {
         navigate('/interests-selection');
       }, 1000);

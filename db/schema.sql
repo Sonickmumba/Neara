@@ -57,6 +57,21 @@ BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =====================================================
+-- EMAIL VERIFICATION CODES
+-- =====================================================
+
+CREATE TABLE email_verification_codes (
+    id VARCHAR(36) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_email_verification_email ON email_verification_codes(email);
+CREATE INDEX idx_email_verification_expires ON email_verification_codes(expires_at);
+
+-- =====================================================
 -- INTERESTS
 -- =====================================================
 
