@@ -90,11 +90,15 @@ exports.register = async (req, res, next) => {
     // Auto-login user after registration (email already verified)
     req.login({ id: userId, email, name }, (err) => {
       if (err) {
+        console.error('Login error:', err);
         return res.status(500).json({
           success: false,
           message: 'Account created but login failed',
         });
       }
+
+      console.log('Login successful - req.user:', req.user);
+      console.log('Session ID:', req.sessionID);
 
       // Ensure session is saved before sending response
       req.session.save((saveErr) => {
@@ -106,13 +110,16 @@ exports.register = async (req, res, next) => {
           });
         }
 
+        console.log('Session saved successfully');
         res.status(201).json({
           success: true,
           message: 'User registered successfully',
           data: {
-            id: userId,
-            name,
-            email,
+            user: {
+              id: userId,
+              name,
+              email,
+            },
           },
         });
       });
@@ -127,7 +134,7 @@ exports.login = (req, res, next) => {
   res.json({
     success: true,
     message: 'Login successful',
-    data: req.user,
+    data: { user: req.user },
   });
 };
 
