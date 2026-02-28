@@ -2,14 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import apiClient from '../services/api';
 import { toast } from 'sonner';
 
-export function useFavoriteToggle({
-  listingId,
-  initialIsFavorited = false,
-}) {
+export function useFavoriteToggle({ listingId, initialIsFavorited = false }) {
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited);
   const [hasChecked, setHasChecked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const inFlightRef = useRef(false);
 
   /* 🔍 Check favorite status on mount */
@@ -18,15 +15,14 @@ export function useFavoriteToggle({
 
     async function fetchStatus() {
       try {
-        const res = await apiClient.get(
-          `/api/favorites/check/${listingId}`
-        );
+        const res = await apiClient.get(`/api/favorites/check/${listingId}`);
 
         if (mounted) {
           setIsFavorited(res.data.data.isFavorited);
           setHasChecked(true);
         }
-      } catch {
+      } catch (err) {
+        // ignore auth errors; we just want the button to render
         if (mounted) setHasChecked(true);
       }
     }
@@ -43,10 +39,10 @@ export function useFavoriteToggle({
   /* 🔁 Toggle favorite */
   const toggleFavorite = useCallback(async () => {
     if (inFlightRef.current) return;
-    
+
     const previousState = isFavorited;
     const nextState = !previousState;
-    
+
     inFlightRef.current = true;
     setIsLoading(true);
 
@@ -55,27 +51,25 @@ export function useFavoriteToggle({
 
     try {
       if (nextState) {
-        await apiClient.post(
-          `/api/favorites`,
-          { listingId }
-        );
+        await apiClient.post(`/api/favorites`, { listingId });
         // ✅ Show success toast ONLY after API succeeds
         toast.success('Added to favorites');
       } else {
-        await apiClient.delete(
-          `/api/favorites/${listingId}`
-        );
+        await apiClient.delete(`/api/favorites/${listingId}`);
         // ✅ Show success toast ONLY after API succeeds
         toast.success('Removed from favorites');
       }
     } catch (err) {
       // ❌ Rollback optimistic update
       setIsFavorited(previousState);
-      
-      // ❌ Show error toast (only one toast now)
-      toast.error(
-        err.response?.data?.message || 'Failed to update favorites'
-      );
+
+      if (err.response?.status === 401) {
+        toast.error('Please log in to save favorites');
+      } else {
+        toast.error(
+          err.response?.data?.message || 'Failed to update favorites'
+        );
+      }
       console.error('Favorite toggle error:', err);
     } finally {
       inFlightRef.current = false;
