@@ -26,9 +26,9 @@ export function LoginSignup() {
 
   const authStatus = useSelector((state) => state.auth.status);
   const authError = useSelector((state) => state.auth.error);
-  const emailVerificationStatus = useSelector(
-    (state) => state.auth.emailVerificationStatus
-  );
+  // const emailVerificationStatus = useSelector(
+  //   (state) => state.auth.emailVerificationStatus
+  // );
 
   const isSubmitting = authStatus === 'loading';
   const [showVerificationUI, setShowVerificationUI] = useState(false);
@@ -52,12 +52,8 @@ export function LoginSignup() {
     }
   }, [authError]);
 
-  useEffect(() => {
-    if (emailVerificationStatus === 'verified') {
-      // After email is verified, complete registration
-      navigate('/homeFeed');
-    }
-  }, [emailVerificationStatus, navigate]);
+  // navigation happens once the register thunk has resolved; see
+  // onVerified handler below.
 
   const validateEmail = (email) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -159,14 +155,52 @@ export function LoginSignup() {
             <EmailVerification
               email={pendingEmail}
               onVerified={() => {
-                // After verification, complete registration
+                // complete registration and only navigate once the API call
+                // returns so that the session cookie exists when the feed
+                // makes its first request.
                 dispatch(
                   registerUser({
                     name: formData.name,
                     email: formData.email,
                     password: formData.password,
                   })
-                );
+                )
+                  .unwrap()
+                  .then(() => {
+                    toast.success('Account created!');
+                    dispatch(resetEmailVerification());
+                    setShowVerificationUI(false);
+                    navigate('/homeFeed');
+                  })
+                  .catch((err) => {
+                    // if the failure is because the user already exists,
+                    // try logging them in instead of leaving them stranded.
+                    if (
+                      typeof err === 'string' &&
+                      err.toLowerCase().includes('already exists')
+                    ) {
+                      dispatch(
+                        loginUser({
+                          email: formData.email,
+                          password: formData.password,
+                        })
+                      )
+                        .unwrap()
+                        .then(() => {
+                          toast.success('Welcome back!');
+                          dispatch(resetEmailVerification());
+                          setShowVerificationUI(false);
+                          navigate('/homeFeed');
+                        })
+                        .catch((loginErr) => {
+                          toast.error(loginErr || 'Login failed');
+                        });
+                    } else {
+                      toast.error(err || 'Registration failed');
+                      // allow user to try again by resetting verification state
+                      dispatch(resetEmailVerification());
+                    }
+                  });
               }}
               onBack={() => {
                 setShowVerificationUI(false);
