@@ -3,7 +3,7 @@ import { Star, CheckCircle } from 'lucide-react';
 export function ReputationBadge({ 
   rating, 
   totalRatings, 
-  isVerified = false, 
+  isVerified, 
   size = 'md',
   showVerified = true 
 }) {
@@ -18,7 +18,7 @@ export function ReputationBadge({
     md: 'w-4 h-4',
     lg: 'w-5 h-5'
   };
-
+  
   return (
     <div className="flex items-center gap-2">
       {rating > 0 && (
