@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Home, Search, Map, PlusCircle, MessageSquare, User, Bell, SlidersHorizontal, Heart } from 'lucide-react';
+import {
+  Home,
+  Search,
+  Map,
+  PlusCircle,
+  MessageSquare,
+  User,
+  Bell,
+  SlidersHorizontal,
+  Heart,
+} from 'lucide-react';
 import { FavoriteButton } from '../../components/FavoriteButton';
 import { ReputationBadge } from '../../components/ReputableBadge';
 import { RecentActivity } from '../../components/RecentActivity';
 import { NotificationsPanel } from '../../components/NotificationsPanel';
-
 
 import { fetchHomeFeed } from './homeFeedThunks';
 import {
@@ -99,39 +108,34 @@ import { setActiveTab } from './homeFeedSlice';
 // ];
 
 export function HomeFeed({ navigate }) {
-    const dispatch = useDispatch();
+  const dispatch = useDispatch();
 
-// 🔗 Redux state
+  // 🔗 Redux state
   const listings = useSelector(selectFilteredListings);
   const status = useSelector(selectFeedStatus);
   const activeTab = useSelector(selectActiveTab);
 
-
-//   const [activeTab, setActiveTab] = useState('all');
+  //   const [activeTab, setActiveTab] = useState('all');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
 
-//   const filteredListings = mockListings.filter(listing => {
-//     if (activeTab === 'all') return true;
-//     if (activeTab === 'offers') return listing.type === 'offer';
-//     if (activeTab === 'needs') return listing.type === 'need';
-//     return true;
-//   });
+  //   const filteredListings = mockListings.filter(listing => {
+  //     if (activeTab === 'all') return true;
+  //     if (activeTab === 'offers') return listing.type === 'offer';
+  //     if (activeTab === 'needs') return listing.type === 'need';
+  //     return true;
+  //   });
 
   const handleFavoriteToggle = (listingId, e) => {
     e.stopPropagation();
     // Favorite toggle is handled by FavoriteButton component
   };
 
-
   useEffect(() => {
-  if (status === 'idle') {
-    dispatch(fetchHomeFeed());
-  }
-}, [status, dispatch]);
-
-console.log(listings);
-
+    if (status === 'idle') {
+      dispatch(fetchHomeFeed());
+    }
+  }, [status, dispatch]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -232,8 +236,10 @@ console.log(listings);
       {/* Recent Activity Section */}
       {showActivity && (
         <div className="bg-white border-b border-gray-200 p-4">
-          <RecentActivity 
-            onListingClick={(listingId) => navigate('listing-details', { selectedListingId: listingId })}
+          <RecentActivity
+            onListingClick={(listingId) =>
+              navigate('listing-details', { selectedListingId: listingId })
+            }
           />
         </div>
       )}
@@ -247,24 +253,30 @@ console.log(listings);
           >
             {/* Favorite Button - Top Right */}
             <div className="absolute top-3 right-3 z-10">
-              <FavoriteButton 
+              <FavoriteButton
                 listingId={listing.id}
                 onToggle={(e) => handleFavoriteToggle(listing.id, e)}
               />
             </div>
 
-            <div 
-              onClick={() => navigate('listing-details', { selectedListingId: listing.id })}
+            <div
+              onClick={() =>
+                navigate('listing-details', { selectedListingId: listing.id })
+              }
               className="pr-8"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    listing.type === 'offer'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-orange-100 text-orange-700'
-                  }`}>
-                    {listing.type === 'offer' ? '🤝 Offering' : '🙋 Looking for'}
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      listing.type === 'offer'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-orange-100 text-orange-700'
+                    }`}
+                  >
+                    {listing.type === 'offer'
+                      ? '🤝 Offering'
+                      : '🙋 Looking for'}
                   </span>
                   <span className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700">
                     {listing.category}
@@ -273,17 +285,24 @@ console.log(listings);
               </div>
 
               <h3 className="mb-2">{listing.title}</h3>
-              <p className="text-gray-600 mb-4 line-clamp-2">{listing.description}</p>
+              <p className="text-gray-600 mb-4 line-clamp-2">
+                {listing.description}
+              </p>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-sm">
-                    {listing.author_name.split(' ').map(n => n[0]).join('')}
+                    {listing.author_name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')}
                   </div>
                   <div>
-                    <div className="text-sm font-medium mb-1">{listing.author_name}</div>
+                    <div className="text-sm font-medium mb-1">
+                      {listing.author_name}
+                    </div>
                     <div className="flex items-center gap-2">
-                      <ReputationBadge 
+                      <ReputationBadge
                         rating={listing.author_rating}
                         isVerified={listing.isverified}
                         totalRatings={listing.totalrating}
@@ -291,7 +310,8 @@ console.log(listings);
                       />
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {listing.neighborhood} • {listing.distance} km • {listing.timeAgo}
+                      {listing.neighborhood} • {listing.distance} km •{' '}
+                      {listing.timeAgo}
                     </div>
                   </div>
                 </div>
@@ -347,17 +367,23 @@ console.log(listings);
       </nav>
 
       {/* Notifications Panel */}
-      <NotificationsPanel 
+      <NotificationsPanel
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
         onNotificationClick={(notification) => {
           setShowNotifications(false);
           if (notification.type === 'message') {
-            navigate('chat-conversation', { selectedChatId: notification.referenceId });
+            navigate('chat-conversation', {
+              selectedChatId: notification.referenceId,
+            });
           } else if (notification.type === 'trade') {
-            navigate('trade-management', { selectedTradeId: notification.referenceId });
+            navigate('trade-management', {
+              selectedTradeId: notification.referenceId,
+            });
           } else if (notification.type === 'listing') {
-            navigate('listing-details', { selectedListingId: notification.referenceId });
+            navigate('listing-details', {
+              selectedListingId: notification.referenceId,
+            });
           }
         }}
       />
