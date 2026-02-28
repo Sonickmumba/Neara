@@ -41,7 +41,7 @@ if (
 async function sendVerificationEmail(email, code) {
   try {
     // Log code for development/testing
-    console.log(`\n✉️  Verification Code for ${email}: ${code}\n`);
+    // console.log(`\n✉️  Verification Code for ${email}: ${code}\n`);
 
     // If transporter is not configured, use test mode
     if (!transporter) {
@@ -97,7 +97,7 @@ async function sendVerificationEmail(email, code) {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Verification email sent to ${email}`);
+    // console.log(`✅ Verification email sent to ${email}`);
     return true;
   } catch (error) {
     console.error('❌ Failed to send verification email:', error.message);
