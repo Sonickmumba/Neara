@@ -107,16 +107,6 @@ export function HomeFeed({ navigate }) {
   const activeTab = useSelector(selectActiveTab);
 
 
-
-
-
-
-
-
-
-
-
-
 //   const [activeTab, setActiveTab] = useState('all');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
@@ -299,7 +289,7 @@ export function HomeFeed({ navigate }) {
                       />
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {listing.neighborhood} • {listing.distance} • {listing.timeAgo}
+                      {listing.neighborhood} • {listing.distance} km • {listing.timeAgo}
                     </div>
                   </div>
                 </div>
