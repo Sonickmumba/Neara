@@ -27,7 +27,6 @@ export const fetchHomeFeed = createAsyncThunk(
        *   nextCursor: "abc123" | null
        * }
        */
-      console.log('Fetched home feed:', response.data);
       return response.data;
     } catch (err) {
       return rejectWithValue(

@@ -74,7 +74,6 @@ import { homeFeedAdapter } from './homeFeedSlice';
  */
 // const selectHomeFeedState = (state) => state.homeFeed;
 const selectHomeFeedState = (state) => {
-  console.log('homeFeed slice:', state.homeFeed);
   return state.homeFeed;
 };
 
