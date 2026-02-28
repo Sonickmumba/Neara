@@ -14,7 +14,7 @@ require('../config/passport');
 const router = express.Router();
 
 // register user
-router.post('/register', validateRegister, authController.register);
+router.post('/register', authController.register);
 
 // user login
 router.post(
