@@ -12,7 +12,6 @@ const handleValidationErrors = (req, res, next) => {
       errors: errors.array().map((err) => ({
         field: err.param,
         message: err.msg,
-        value: err.value,
       })),
     });
   }
@@ -23,50 +22,23 @@ const handleValidationErrors = (req, res, next) => {
  * AUTH VALIDATIONS
  */
 const validateRegister = [
-  body('name')
-    .trim()
-    .notEmpty()
-    .withMessage('Name is required')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Name must be between 2 and 100 characters'),
+  body('name').trim().notEmpty().withMessage('Name is required'),
   body('email')
     .trim()
     .isEmail()
     .withMessage('Valid email is required')
     .normalizeEmail(),
   body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage(
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    ),
-  body('phone')
-    .optional()
-    .trim()
-    .matches(/^[0-9\s\-\+\(\)]+$/)
-    .withMessage('Invalid phone number format'),
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters'),
+  body('phone').optional().trim(),
   body('interests')
     .optional()
     .isArray()
-    .withMessage('Interests must be an array')
-    .custom((arr) =>
-      arr.every((id) => typeof id === 'string' || typeof id === 'number')
-    )
-    .withMessage('Each interest must be a valid ID'),
-  body('location_lat')
-    .optional()
-    .isFloat({ min: -90, max: 90 })
-    .withMessage('Latitude must be between -90 and 90'),
-  body('location_lng')
-    .optional()
-    .isFloat({ min: -180, max: 180 })
-    .withMessage('Longitude must be between -180 and 180'),
-  body('neighborhood')
-    .optional()
-    .trim()
-    .isLength({ max: 100 })
-    .withMessage('Neighborhood name too long'),
+    .withMessage('Interests must be an array'),
+  body('location_lat').optional(),
+  body('location_lng').optional(),
+  body('neighborhood').optional().trim(),
   handleValidationErrors,
 ];
 
@@ -118,12 +90,11 @@ const validateCreateListing = [
     .withMessage('Description is required')
     .isLength({ min: 10, max: 2000 })
     .withMessage('Description must be between 10 and 2000 characters'),
-  body('category_id')
-    .optional()
-    .notEmpty()
-    .withMessage('Category is required')
-    .isUUID()
-    .withMessage('Invalid category ID'),
+  //   body('category_id')
+  //     .optional()
+  //     .withMessage('Category is required')
+  //     .isUUID()
+  //     .withMessage('Invalid category ID'),
   body('condition')
     .optional()
     .trim()
@@ -134,7 +105,7 @@ const validateCreateListing = [
     .trim()
     .isIn(['available', 'pending', 'traded'])
     .withMessage('Invalid status'),
-  body('image_url').optional().trim().isURL().withMessage('Invalid image URL'),
+  body('image_url').optional().trim(),
   body('location_lat')
     .optional()
     .isFloat({ min: -90, max: 90 })
