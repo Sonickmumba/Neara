@@ -42,9 +42,11 @@ export function EmailVerification({ email, onVerified, onBack }) {
   useEffect(() => {
     if (isVerified) {
       toast.success('Email verified successfully!');
-      setTimeout(() => onVerified?.(), 500);
+      const timer = setTimeout(() => onVerified?.(), 500);
+      return () => clearTimeout(timer);
     }
-  }, [isVerified, onVerified]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVerified]);
 
   useEffect(() => {
     if (emailVerificationError) {
