@@ -130,6 +130,8 @@ export function HomeFeed({ navigate }) {
   }
 }, [status, dispatch]);
 
+console.log(listings);
+
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -283,8 +285,8 @@ export function HomeFeed({ navigate }) {
                     <div className="flex items-center gap-2">
                       <ReputationBadge 
                         rating={listing.author_rating}
-                        isVerified={listing.isVerified}
-                        totalRatings={listing.totalRatings}
+                        isVerified={listing.isverified}
+                        totalRatings={listing.totalrating}
                         size="sm"
                       />
                     </div>
