@@ -3,9 +3,9 @@ const nodemailer = require('nodemailer');
 // Configure email service only if credentials are provided
 let transporter = null;
 
-console.log('Email config check:');
-console.log('EMAIL_USER:', process.env.EMAIL_USER);
-console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '***' : 'NOT SET');
+// console.log('Email config check:');
+// console.log('EMAIL_USER:', process.env.EMAIL_USER);
+// console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '***' : 'NOT SET');
 
 if (
   process.env.EMAIL_USER &&
