@@ -1,6 +1,10 @@
 const express = require('express');
 const conversationsController = require('../controllers/conversationsController');
 const ensureAuth = require('../middleware/auth');
+const {
+  validateCreateConversation,
+  validateSendMessage,
+} = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -11,12 +15,20 @@ router.use(ensureAuth);
 router.get('/', conversationsController.getUserConversations);
 
 // Get or create conversation
-router.post('/', conversationsController.getOrCreateConversation);
+router.post(
+  '/',
+  validateCreateConversation,
+  conversationsController.getOrCreateConversation
+);
 
 // Get messages in conversation
 router.get('/:conversationId/messages', conversationsController.getMessages);
 
 // Send message
-router.post('/messages', conversationsController.sendMessage);
+router.post(
+  '/:conversationId/messages',
+  validateSendMessage,
+  conversationsController.sendMessage
+);
 
 module.exports = router;

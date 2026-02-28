@@ -4,10 +4,11 @@ const { validationResult } = require('express-validator');
 
 const pool = require('../config/database');
 const { generateId } = require('../utils/helpers');
+const { sendVerificationEmail } = require('../utils/emailService');
+const e = require('express');
 
 // register user
 exports.register = async (req, res, next) => {
-
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -55,7 +56,7 @@ exports.register = async (req, res, next) => {
     const userId = generateId();
     await pool.query(
       `INSERT INTO users (id, name, email, password_hash, phone, neighborhood, location_lat,
-  location_lng) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+  location_lng, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         userId,
         name,
@@ -65,37 +66,60 @@ exports.register = async (req, res, next) => {
         neighborhood,
         location_lat ?? null,
         location_lng ?? null,
+        true, // Mark email as verified since user already verified it
       ]
     );
 
     // Add user interests if provided
     if (Array.isArray(interests) && interests.length > 0) {
-      const placeholders = interests.map((_, i) => `($1, $${i + 2})`).join(',');
+      try {
+        const placeholders = interests
+          .map((_, i) => `($1, $${i + 2})`)
+          .join(',');
+        const values = [userId, ...interests];
 
-      const values = [userId, ...interests];
-
-      await pool.query(
-        `INSERT INTO user_interests (user_id, interest_id) VALUES ${placeholders}`,
-        values
-      );
+        await pool.query(
+          `INSERT INTO user_interests (user_id, interest_id) VALUES ${placeholders}`,
+          values
+        );
+      } catch (interestErr) {
+        throw interestErr;
+      }
     }
 
+    // Auto-login user after registration (email already verified)
     req.login({ id: userId, email, name }, (err) => {
       if (err) {
-        return next(err);
+        console.error('Login error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Account created but login failed',
+        });
       }
 
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully',
-        data: {
-          id: userId,
-          name,
-          email,
-        },
+      // Ensure session is saved before sending response
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('Session save error:', saveErr);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to create session',
+          });
+        }
+        
+        res.status(201).json({
+          success: true,
+          message: 'User registered successfully',
+          data: {
+            user: {
+              id: userId,
+              name,
+              email,
+            },
+          },
+        });
       });
     });
-    
   } catch (error) {
     console.error(error);
     res.status(500).send('Error registering user.');
@@ -106,8 +130,107 @@ exports.login = (req, res, next) => {
   res.json({
     success: true,
     message: 'Login successful',
-    data: req.user,
+    data: { user: req.user },
   });
+};
+
+// Send verification email
+exports.sendVerificationEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set expiration to 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Delete old codes for this email
+    await pool.query('DELETE FROM email_verification_codes WHERE email = $1', [
+      email,
+    ]);
+
+    // Store new verification code
+    const codeId = generateId();
+    await pool.query(
+      'INSERT INTO email_verification_codes (id, email, code, expires_at) VALUES ($1, $2, $3, $4)',
+      [codeId, email, code, expiresAt]
+    );
+
+    // Send verification email
+    const emailSent = await sendVerificationEmail(email, code);
+
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send verification email. Please try again.',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to email',
+      email,
+    });
+  } catch (error) {
+    console.error('Send verification email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send verification email',
+    });
+  }
+};
+
+// Verify email
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and verification code are required',
+      });
+    }
+
+    // Check if verification code exists and is valid
+    const result = await pool.query(
+      'SELECT * FROM email_verification_codes WHERE email = $1 AND code = $2 AND expires_at > NOW()',
+      [email, code]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code',
+      });
+    }
+
+    // Delete the used verification code
+    await pool.query('DELETE FROM email_verification_codes WHERE email = $1', [
+      email,
+    ]);
+
+    // Email verification successful - user will be created in register endpoint
+    res.json({
+      success: true,
+      message: 'Email verified successfully',
+      email,
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
 };
 
 // Get user by ID

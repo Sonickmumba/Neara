@@ -1,6 +1,10 @@
 const express = require('express');
 const path = require('path');
 
+// Load environment variables FIRST before any other imports
+const dotenv = require('dotenv');
+dotenv.config();
+
 // const http = require('http');
 // const { Server } = require('socket.io');
 
@@ -9,7 +13,6 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const passport = require('passport');
 
-const dotenv = require('dotenv');
 const db = require('./config/database');
 
 const securityHeaders = require('./middleware/securityHeaders');
@@ -25,13 +28,7 @@ const tradeRoutes = require('./routes/tradeRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
-
-
-
 
 // const server = http.createServer(app);
 /* ======================
@@ -47,14 +44,17 @@ const app = express();
 
 // app.set('io', io);
 
-
 // cors for cross-origin requests here
 app.use(securityHeaders);
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true,
-    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'Retry-After'],
+    exposedHeaders: [
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining',
+      'Retry-After',
+    ],
   })
 );
 
@@ -64,11 +64,12 @@ app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true, // Changed to true to ensure session is saved even if unmodified
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
@@ -92,16 +93,25 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/activity', activityRoutes);
 
-
 app.get('/api/status', (req, res) => {
   res.json({ success: true, message: 'API is running' });
 });
 
+// Test email endpoint
+app.get('/api/test-email', async (req, res) => {
+  const emailService = require('./utils/emailService');
+  try {
+    const result = await emailService.sendVerificationEmail(
+      'kingellie.mumba@gmail.com',
+      '123456'
+    );
+    res.json({ success: result, message: 'Test email sent' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ==========
-
-
-
-
 
 /* ======================
    SOCKET EVENTS
@@ -132,11 +142,10 @@ app.use((req, res) => {
   });
 });
 
-
 /* ======================
    START SERVER
 ====================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`API Server is running at http://localhost:${PORT}.`);
-}); 
+});

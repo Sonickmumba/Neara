@@ -57,6 +57,21 @@ BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =====================================================
+-- EMAIL VERIFICATION CODES
+-- =====================================================
+
+CREATE TABLE email_verification_codes (
+    id VARCHAR(36) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_email_verification_email ON email_verification_codes(email);
+CREATE INDEX idx_email_verification_expires ON email_verification_codes(expires_at);
+
+-- =====================================================
 -- INTERESTS
 -- =====================================================
 
@@ -294,18 +309,34 @@ CREATE INDEX idx_user_badges_badge ON user_badges(badge_id);
 -- DEFAULT INTEREST SEED
 -- =====================================================
 
+-- INSERT INTO interests (id, name, emoji) VALUES
+-- ('int-1','Gardening','🌱'),
+-- ('int-2','Cooking','🍳'),
+-- ('int-3','Music','🎵'),
+-- ('int-4','Sports','⚽'),
+-- ('int-5','Arts & Crafts','🎨'),
+-- ('int-6','Technology','💻'),
+-- ('int-7','Pets','🐕'),
+-- ('int-8','Fitness','🏃'),
+-- ('int-9','Reading','📚'),
+-- ('int-10','Photography','📷'),
+-- ('int-11','DIY Projects','🔨'),
+-- ('int-12','Languages','🗣️');
+
+
 INSERT INTO interests (id, name, emoji) VALUES
-('int-1','Gardening','🌱'),
-('int-2','Cooking','🍳'),
-('int-3','Music','🎵'),
-('int-4','Sports','⚽'),
-('int-5','Arts & Crafts','🎨'),
-('int-6','Technology','💻'),
-('int-7','Pets','🐕'),
-('int-8','Fitness','🏃'),
-('int-9','Reading','📚'),
-('int-10','Photography','📷'),
-('int-11','DIY Projects','🔨'),
-('int-12','Languages','🗣️');
+('skills','Skills & Teaching','💡'),
+('goods','Goods & Items','📦'),
+('services','Services & Help','🛠️'),
+('food','Food & Cooking','🍎'),
+('creative','Creative & Arts','🎨'),
+('sports','Sports & Fitness','⚽'),
+('tech','Tech & Electronics','💻'),
+('home','Home & Garden','🏡'),
+('kids','Kids & Family','👶'),
+('pets','Pets & Animals','🐕'),
+('transport','Transportation','🚗'),
+('events','Events & Community','🎉');
+
 
 COMMIT;

@@ -1,6 +1,7 @@
 const express = require('express');
 const notificationsController = require('../controllers/notificationsController');
 const ensureAuth = require('../middleware/auth');
+const { validateNotificationId } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -12,6 +13,20 @@ router.get('/', notificationsController.getUserNotifications);
 
 // Get unread count
 router.get('/unread-count', notificationsController.getUnreadCount);
+
+// Mark notification as read
+router.patch(
+  '/:id/read',
+  validateNotificationId,
+  notificationsController.markAsRead
+);
+
+// Delete notification
+router.delete(
+  '/:id',
+  validateNotificationId,
+  notificationsController.deleteNotification
+);
 
 // Mark notification as read
 router.patch('/:id/read', notificationsController.markAsRead);

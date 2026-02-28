@@ -897,6 +897,8 @@ exports.getAllListings = async (req, res, next) => {
         u.name AS author_name,
         u.neighborhood,
         u.rating AS author_rating,
+        u.total_ratings as totalRating,
+        u.email_verified as isVerified,
         ${distanceSelect},
         COALESCE(cc.count, 0) AS responses_count
       FROM listings l

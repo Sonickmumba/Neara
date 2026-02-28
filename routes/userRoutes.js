@@ -1,6 +1,7 @@
 const express = require('express');
 const usersController = require('../controllers/usersController');
 const ensureAuth = require('../middleware/auth');
+const { validateUpdateUser } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ router.use(ensureAuth);
 router.get('/:userId', usersController.getUserProfile);
 
 // Update user profile
-router.patch('/profile', usersController.updateUserProfile);
+router.patch('/profile', validateUpdateUser, usersController.updateUserProfile);
 
 // Get user stats
 router.get('/:userId/stats', usersController.getUserStats);

@@ -1,35 +1,41 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  // useNavigate,
+} from 'react-router-dom';
+
+import './App.css';
+
+import { Welcome } from './features/splash/Welcome';
+import { LocationPermission } from './features/splash/location/LocationPermission';
+import { InterestsSelectionScreen } from './features/interest/InterestsSelection';
+import { LoginSignup } from './features/loginSignup/LoginSignup';
+import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerification';
+import { HomeFeed } from './features/homeScreen/HomeFeed';
+import { Toaster } from 'sonner';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <Toaster position="top-center" richColors />
+      <div className="min-h-screen bg-white">
+        <Routes>
+          <Route path="/" element={<Welcome />} />
+          <Route path="/location" element={<LocationPermission />} />
+          <Route path="/interests-selection" element={<InterestsSelectionScreen />} />
+          <Route path="/loginSignup" element={<LoginSignup />} />
+          <Route path="/verifyPhone" element={<PhoneVerificationScreen />} />
+
+          <Route path="/homeFeed" element={<HomeFeed />}>
+            {/* <Route index element={<Navigate to="/homeFeed/all" />} /> */}
+            {/* <Route path="/user-profile/:userId" element={<UserProfile  />} /> */}
+          </Route>
+        </Routes>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -23,3 +23,8 @@ router.post('/', favoritesController.addFavorite);
 router.delete('/:listingId', favoritesController.removeFavorite);
 
 module.exports = router;
+
+// Remove from favorites
+router.delete('/:listingId', favoritesController.removeFavorite);
+
+module.exports = router;

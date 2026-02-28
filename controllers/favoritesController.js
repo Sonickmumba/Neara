@@ -6,7 +6,7 @@ exports.addFavorite = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { listingId } = req.body;
-
+    
     if (!listingId) {
       return res.status(400).json({
         success: false,
