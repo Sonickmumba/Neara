@@ -97,9 +97,6 @@ exports.register = async (req, res, next) => {
         });
       }
 
-      console.log('Login successful - req.user:', req.user);
-      console.log('Session ID:', req.sessionID);
-
       // Ensure session is saved before sending response
       req.session.save((saveErr) => {
         if (saveErr) {
@@ -109,8 +106,7 @@ exports.register = async (req, res, next) => {
             message: 'Failed to create session',
           });
         }
-
-        console.log('Session saved successfully');
+        
         res.status(201).json({
           success: true,
           message: 'User registered successfully',
