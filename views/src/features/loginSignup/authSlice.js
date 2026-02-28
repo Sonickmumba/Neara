@@ -78,12 +78,15 @@ export const registerUser = createAsyncThunk(
 
       const res = await apiClient.post('/api/auth/register', payload);
 
-      return res.data;
+      // return just the user object so reducers don't need to know response shape
+      return res.data.data?.user || res.data.data || res.data;
     } catch (err) {
       console.error('Registration error:', err);
-      return rejectWithValue(
-        err.response?.data?.message || err.message || 'Registration failed'
-      );
+      // server occasionally sends plain-text message (e.g. duplicate email)
+      const serverMsg =
+        err.response?.data?.message ||
+        (typeof err.response?.data === 'string' ? err.response.data : null);
+      return rejectWithValue(serverMsg || err.message || 'Registration failed');
     }
   }
 );
@@ -98,7 +101,7 @@ export const loginUser = createAsyncThunk(
     try {
       const res = await apiClient.post('/api/auth/login', { email, password });
 
-      return res.data;
+      return res.data.data?.user || res.data.data || res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Login failed');
     }
@@ -136,8 +139,8 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
+        state.user = action.payload || null;
+        state.isAuthenticated = !!action.payload;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.status = 'failed';
@@ -151,8 +154,8 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
+        state.user = action.payload || null;
+        state.isAuthenticated = !!action.payload;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = 'failed';
