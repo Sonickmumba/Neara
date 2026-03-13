@@ -24,12 +24,14 @@ export function Favorites() {
 
   const handleFavoriteToggle = (listingId, e) => {
     e.stopPropagation();
-    // toggle action is handled inside listing component/hook
+    // The toggle action is handled inside listing component/hook
   };
 
   if (status === 'loading') {
     return <p className="p-6 text-gray-600">Loading favorites…</p>;
   }
+
+  console.log('Favorite listings:', listings); // Debug log to verify data structure
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
