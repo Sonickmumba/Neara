@@ -136,8 +136,6 @@ export function LoginSignup() {
     toast.info(`${provider} login coming soon!`);
   };
 
-  console.log('Form Data:', formData);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
       {/* Header */}
