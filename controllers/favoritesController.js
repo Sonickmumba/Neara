@@ -1,12 +1,12 @@
 const pool = require('../config/database');
-const { generateId } = require('../utils/helpers');
+const { generateId, calculateDistance, timeAgo } = require('../utils/helpers');
 
 // Add listing to favorites
 exports.addFavorite = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { listingId } = req.body;
-    
+
     if (!listingId) {
       return res.status(400).json({
         success: false,
@@ -104,11 +104,19 @@ exports.getUserFavorites = async (req, res, next) => {
         f.created_at AS favorited_at,
         l.*,
         u.name AS author_name,
-        u.neighborhood AS author_neighborhood,
-        u.rating AS author_rating
+        u.neighborhood,
+        u.rating AS author_rating,
+        u.total_ratings AS totalrating,
+        u.email_verified AS isverified,
+        COALESCE(conversation_counts.conversation_count, 0) as responses_count
       FROM favorites f
       JOIN listings l ON f.listing_id = l.id
       JOIN users u ON l.user_id = u.id
+      LEFT JOIN (
+        SELECT listing_id, COUNT(*) as conversation_count 
+        FROM conversations 
+        GROUP BY listing_id
+      ) conversation_counts ON l.id = conversation_counts.listing_id
       WHERE f.user_id = $1
         AND l.status = 'active'
       ORDER BY f.created_at DESC
@@ -116,10 +124,43 @@ exports.getUserFavorites = async (req, res, next) => {
       [userId]
     );
 
+    let listings = result.rows;
+
+    // Determine reference location (viewer context)
+    let refLat = null;
+    let refLng = null;
+
+    // Fallback: authenticated user location
+    if (req.user?.location_lat && req.user?.location_lng) {
+      refLat = parseFloat(req.user.location_lat);
+      refLng = parseFloat(req.user.location_lng);
+    }
+
+    if (refLat !== null && refLng !== null) {
+      listings.forEach((listing) => {
+        if (listing.location_lat && listing.location_lng) {
+          const distance = calculateDistance(
+            refLat,
+            refLng,
+            parseFloat(listing.location_lat),
+            parseFloat(listing.location_lng)
+          );
+          listing.distance = Number(distance.toFixed(1));
+        } else {
+          listing.distance = null;
+        }
+      });
+    }
+
+    // Time ago
+    listings.forEach((listing) => {
+      listing.timeAgo = timeAgo(listing.created_at);
+    });
+
     res.json({
       success: true,
-      count: result.rows.length,
-      data: result.rows,
+      count: listings.length,
+      data: listings,
     });
   } catch (error) {
     next(error);
@@ -177,5 +218,3 @@ exports.checkFavorite = async (req, res, next) => {
     next(error);
   }
 };
-
-
