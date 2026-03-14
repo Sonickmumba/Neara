@@ -341,7 +341,7 @@ export function LoginSignup() {
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
-                      type="email"
+                      type="text"
                       id="email"
                       value={formData.email}
                       onChange={(e) => {
