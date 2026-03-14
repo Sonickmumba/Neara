@@ -14,6 +14,8 @@ import { InterestsSelectionScreen } from './features/interest/InterestsSelection
 import { LoginSignup } from './features/loginSignup/LoginSignup';
 import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerification';
 import { HomeFeed } from './features/homeScreen/HomeFeed';
+import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
+import { Favorites } from './features/homeScreen/Favorites';
 import { Toaster } from 'sonner';
 
 function App() {
@@ -24,13 +26,17 @@ function App() {
         <Routes>
           <Route path="/" element={<Welcome />} />
           <Route path="/location" element={<LocationPermission />} />
-          <Route path="/interests-selection" element={<InterestsSelectionScreen />} />
+          <Route
+            path="/interests-selection"
+            element={<InterestsSelectionScreen />}
+          />
           <Route path="/loginSignup" element={<LoginSignup />} />
           <Route path="/verifyPhone" element={<PhoneVerificationScreen />} />
 
-          <Route path="/homeFeed" element={<HomeFeed />}>
-            {/* <Route index element={<Navigate to="/homeFeed/all" />} /> */}
-            {/* <Route path="/user-profile/:userId" element={<UserProfile  />} /> */}
+          <Route path="/homeFeed" element={<HomeFeedLayout />}>
+            <Route index element={<HomeFeed />} />
+            <Route path="favorites" element={<Favorites />} />
+            {/* additional nested paths (notifications, user-profile, etc.) can go here */}
           </Route>
         </Routes>
       </div>

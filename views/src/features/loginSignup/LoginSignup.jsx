@@ -34,7 +34,7 @@ export function LoginSignup() {
   const [showVerificationUI, setShowVerificationUI] = useState(false);
   const [pendingEmail, setPendingEmail] = useState(null);
 
-  const [mode, setMode] = useState('signup'); // 'login' or 'signup'
+  const [mode, setMode] = useState('login'); // 'login' or 'signup'
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -135,8 +135,6 @@ export function LoginSignup() {
   const handleSocialLogin = (provider) => {
     toast.info(`${provider} login coming soon!`);
   };
-
-  console.log('Form Data:', formData);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
@@ -343,7 +341,7 @@ export function LoginSignup() {
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
-                      type="email"
+                      type="text"
                       id="email"
                       value={formData.email}
                       onChange={(e) => {
