@@ -3,7 +3,7 @@ import {
   Routes,
   Route,
   Navigate,
-  // useNavigate,
+  useNavigate,
 } from 'react-router-dom';
 
 import './App.css';
@@ -16,9 +16,11 @@ import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerificatio
 import { HomeFeed } from './features/homeScreen/HomeFeed';
 import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
 import { Favorites } from './features/homeScreen/Favorites';
+import { CreateListing } from './components/CreateListing';
 import { Toaster } from 'sonner';
 
 function App() {
+  const navigate = useNavigate();
   return (
     <>
       <Toaster position="top-center" richColors />
@@ -36,6 +38,7 @@ function App() {
           <Route path="/homeFeed" element={<HomeFeedLayout />}>
             <Route index element={<HomeFeed />} />
             <Route path="favorites" element={<Favorites />} />
+            <Route path="create-listing" element={<CreateListing navigate={(path, state) => navigate(path, { state })} />} />
             {/* additional nested paths (notifications, user-profile, etc.) can go here */}
           </Route>
         </Routes>

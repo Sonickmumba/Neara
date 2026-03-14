@@ -80,6 +80,18 @@ const validateVerifyEmail = [
  * LISTING VALIDATIONS
  */
 const validateCreateListing = [
+  body('type')
+    .trim()
+    .notEmpty()
+    .withMessage('Type is required')
+    .isIn(['offer', 'need'])
+    .withMessage('Type must be either "offer" or "need"'),
+  body('category')
+    .trim()
+    .notEmpty()
+    .withMessage('Category is required')
+    .isIn(['skills', 'goods', 'services'])
+    .withMessage('Category must be one of: skills, goods, services'),
   body('title')
     .trim()
     .notEmpty()
@@ -92,11 +104,6 @@ const validateCreateListing = [
     .withMessage('Description is required')
     .isLength({ min: 10, max: 2000 })
     .withMessage('Description must be between 10 and 2000 characters'),
-  //   body('category_id')
-  //     .optional()
-  //     .withMessage('Category is required')
-  //     .isUUID()
-  //     .withMessage('Invalid category ID'),
   body('condition')
     .optional()
     .trim()
