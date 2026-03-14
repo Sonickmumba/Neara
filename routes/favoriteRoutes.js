@@ -1,6 +1,7 @@
 const express = require('express');
 const favoritesController = require('../controllers/favoritesController');
 const ensureAuth = require('../middleware/auth');
+const { validateFavoriteId } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -14,7 +15,11 @@ router.get('/', favoritesController.getUserFavorites);
 router.get('/count', favoritesController.getFavoritesCount);
 
 // Check if listing is favorited
-router.get('/check/:listingId', favoritesController.checkFavorite);
+router.get(
+  '/check/:listingId',
+  validateFavoriteId,
+  favoritesController.checkFavorite
+);
 
 // Add to favorites
 router.post('/', favoritesController.addFavorite);
