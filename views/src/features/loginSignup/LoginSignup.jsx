@@ -34,7 +34,7 @@ export function LoginSignup() {
   const [showVerificationUI, setShowVerificationUI] = useState(false);
   const [pendingEmail, setPendingEmail] = useState(null);
 
-  const [mode, setMode] = useState('signup'); // 'login' or 'signup'
+  const [mode, setMode] = useState('login'); // 'login' or 'signup'
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
