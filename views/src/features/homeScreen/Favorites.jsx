@@ -31,8 +31,6 @@ export function Favorites() {
     return <p className="p-6 text-gray-600">Loading favorites…</p>;
   }
 
-  console.log('Favorite listings:', listings); // Debug log to verify data structure
-
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <h2 className="px-4 py-4 text-xl font-semibold">Your Favorites</h2>
