@@ -1018,6 +1018,23 @@ exports.createListing = async (req, res, next) => {
       image_url,
     } = req.body;
 
+    // If location is not provided, use the user's location
+    let finalLocationLat = location_lat;
+    let finalLocationLng = location_lng;
+
+    if (finalLocationLat == null || finalLocationLng == null) {
+      // Fetch user's location
+      const userResult = await pool.query(
+        'SELECT location_lat, location_lng FROM users WHERE id = $1',
+        [req.user.id]
+      );
+
+      if (userResult.rows[0]) {
+        finalLocationLat = userResult.rows[0].location_lat;
+        finalLocationLng = userResult.rows[0].location_lng;
+      }
+    }
+
     const listingId = generateId();
 
     await pool.query(
@@ -1035,8 +1052,8 @@ exports.createListing = async (req, res, next) => {
         category,
         title,
         description,
-        location_lat,
-        location_lng,
+        finalLocationLat,
+        finalLocationLng,
         image_url,
       ]
     );
@@ -1060,6 +1077,8 @@ exports.createListing = async (req, res, next) => {
 
     const listing = listingRows[0];
     listing.timeAgo = timeAgo(listing.created_at);
+
+    console.log('Created listing:', listing);
 
     /* ---------------------------
        Real-time emit WITHOUT distance

@@ -74,8 +74,11 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
                     />
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {listing.neighborhood} • {listing.distance} km •{' '}
-                    {listing.timeAgo}
+                    {listing.neighborhood} •{' '}
+                    {listing.distance != null
+                      ? `${listing.distance} km`
+                      : 'Distance unknown'}{' '}
+                    • {listing.timeAgo}
                   </div>
                 </div>
               </div>
