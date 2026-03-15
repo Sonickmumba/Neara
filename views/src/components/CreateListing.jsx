@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   ArrowLeft,
   X,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../services/api';
+import { addListing } from '../features/homeScreen/homeFeedSlice';
 
 const CATEGORIES = [
   {
@@ -51,6 +53,7 @@ const TEMPLATES = {
 };
 
 export function CreateListing({ navigate }) {
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     type: 'offer',
     category: 'skills',
@@ -118,7 +121,12 @@ export function CreateListing({ navigate }) {
         // payload.image_url = uploadedImageUrl;
       }
 
-      await apiClient.post('/api/listings', payload);
+      const response = await apiClient.post('/api/listings', payload);
+      const newListing = response.data?.data;
+
+      if (newListing) {
+        dispatch(addListing(newListing));
+      }
 
       toast.success('Listing created successfully!');
 
@@ -126,7 +134,7 @@ export function CreateListing({ navigate }) {
       localStorage.removeItem('listingDraft');
 
       // Navigate back to home feed
-      navigate('/homeFeed'); // change to listing-details with new listing ID once available
+      navigate('/homeFeed');
     } catch (error) {
       console.error('Error creating listing:', error);
       const errorMessage =
@@ -186,7 +194,7 @@ export function CreateListing({ navigate }) {
         <div className="px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('home')}
+              onClick={() => navigate('/homeFeed')}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />

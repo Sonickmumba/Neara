@@ -10,6 +10,8 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
     return <p className="text-gray-600 p-6">No listings available.</p>;
   }
 
+  console.log('Rendering ListingsFeed with listings:', listings);
+
   return (
     <>
       {listings.map((listing) => (

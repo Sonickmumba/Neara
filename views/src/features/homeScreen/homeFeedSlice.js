@@ -11,7 +11,12 @@ import {
 
 export const homeFeedAdapter = createEntityAdapter({
   selectId: (listing) => listing.id ?? listing._id,
-  sortComparer: false,
+  sortComparer: (a, b) => {
+    // Ensure newest listings appear first
+    const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
+    return bTime - aTime;
+  },
 });
 
 const initialState = homeFeedAdapter.getInitialState({
@@ -27,6 +32,9 @@ const homeFeedSlice = createSlice({
   reducers: {
     setActiveTab(state, action) {
       state.activeTab = action.payload;
+    },
+    addListing(state, action) {
+      homeFeedAdapter.upsertOne(state, action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -55,5 +63,5 @@ const homeFeedSlice = createSlice({
   },
 });
 
-export const { setActiveTab } = homeFeedSlice.actions;
+export const { setActiveTab, addListing } = homeFeedSlice.actions;
 export default homeFeedSlice.reducer;
