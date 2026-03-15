@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { timeAgo } = require('../utils/helpers');
+const { generateId, timeAgo } = require('../utils/helpers');
 
 // Create notification helper function
 exports.createNotification = async (
@@ -10,12 +10,20 @@ exports.createNotification = async (
   referenceId = null
 ) => {
   try {
+    const notificationId = generateId();
     const query = `
-      INSERT INTO notifications (user_id, type, title, description, reference_id)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO notifications (id, user_id, type, title, description, reference_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
-    const values = [userId, type, title, description, referenceId];
+    const values = [
+      notificationId,
+      userId,
+      type,
+      title,
+      description,
+      referenceId,
+    ];
 
     const result = await pool.query(query, values);
     return result.rows[0];

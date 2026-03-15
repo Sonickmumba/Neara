@@ -32,7 +32,8 @@ const CATEGORIES = [
     label: 'Services',
     icon: '🛠️',
     examples: 'Repair, cleaning, moving',
-  }];
+  },
+];
 
 const TEMPLATES = {
   skills: {
@@ -127,7 +128,7 @@ export function CreateListing({ navigate }) {
       if (newListing) {
         dispatch(addListing(newListing));
       }
-
+      
       toast.success('Listing created successfully!');
 
       // Clear draft
