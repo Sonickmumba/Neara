@@ -3,7 +3,7 @@ import { FavoriteButton } from '../../../components/FavoriteButton';
 import { ReputationBadge } from '../../../components/ReputableBadge';
 import { MessageSquare } from 'lucide-react';
 
-export function ListingsFeed({ listings, onFavoriteToggle }) {
+export function ListingsFeed({ listings }) {
   const navigate = useNavigate();
 
   if (!listings || listings.length === 0) {
@@ -18,10 +18,7 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
           className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer relative"
         >
           <div className="absolute top-3 right-3 z-10">
-            <FavoriteButton
-              listingId={listing.id}
-              onToggle={(e) => onFavoriteToggle(listing.id, e)}
-            />
+            <FavoriteButton listingId={listing.id} />
           </div>
 
           <div
