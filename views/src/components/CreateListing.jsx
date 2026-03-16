@@ -116,10 +116,9 @@ export function CreateListing({ navigate }) {
         payload.description += `\n\nLooking for: ${formData.tradingFor.trim()}`;
       }
 
-      // TODO: Handle image uploads - for now, use first image if available
+      // Include uploaded image URLs
       if (formData.images.length > 0) {
-        // In a real implementation, upload images to server first
-        // payload.image_url = uploadedImageUrl;
+        payload.image_urls = JSON.stringify(formData.images);
       }
 
       const response = await apiClient.post('/api/listings', payload);
@@ -128,7 +127,7 @@ export function CreateListing({ navigate }) {
       if (newListing) {
         dispatch(addListing(newListing));
       }
-      
+
       toast.success('Listing created successfully!');
 
       // Clear draft
@@ -155,22 +154,77 @@ export function CreateListing({ navigate }) {
     }
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
+
     if (files.length + formData.images.length > 5) {
       toast.error('Maximum 5 images allowed');
       return;
     }
 
-    // In a real app, upload to server here
-    const imageUrls = files.map((file) => URL.createObjectURL(file));
-    setFormData({ ...formData, images: [...formData.images, ...imageUrls] });
-    toast.success(`${files.length} image(s) added`);
+    // Show loading state
+    const uploadPromises = files.map(async (file) => {
+      const formDataUpload = new FormData();
+      formDataUpload.append('images', file);
+
+      try {
+        const response = await apiClient.post(
+          '/api/images/upload',
+          formDataUpload,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+            // onUploadProgress could be added here for progress tracking
+          }
+        );
+
+        if (response.data?.success && response.data?.data?.[0]) {
+          return response.data.data[0].url; // Return the uploaded image URL
+        } else {
+          throw new Error('Upload failed');
+        }
+      } catch (error) {
+        console.error('Image upload error:', error);
+        throw error;
+      }
+    });
+
+    try {
+      const uploadedUrls = await Promise.all(uploadPromises);
+      setFormData({
+        ...formData,
+        images: [...formData.images, ...uploadedUrls],
+      });
+      toast.success(`${files.length} image(s) uploaded successfully`);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast.error('Failed to upload some images. Please try again.');
+    }
   };
 
-  const removeImage = (index) => {
+  const removeImage = async (index) => {
+    const imageUrl = formData.images[index];
+
+    // If it's a Cloudinary URL, try to delete it from Cloudinary
+    if (imageUrl && imageUrl.includes('cloudinary.com')) {
+      try {
+        // Extract public_id from Cloudinary URL
+        // URL format: https://res.cloudinary.com/{cloud_name}/image/upload/v{version}/{public_id}.{format}
+        const urlParts = imageUrl.split('/');
+        const publicIdWithExt = urlParts[urlParts.length - 1];
+        const publicId = publicIdWithExt.split('.')[0]; // Remove file extension
+
+        await apiClient.delete(`/api/images/${publicId}`);
+      } catch (error) {
+        console.error('Failed to delete image from cloud:', error);
+        // Don't prevent local removal if cloud deletion fails
+      }
+    }
+
     const newImages = formData.images.filter((_, i) => i !== index);
     setFormData({ ...formData, images: newImages });
+    toast.success('Image removed');
   };
 
   const applyTemplate = (template) => {

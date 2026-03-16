@@ -186,7 +186,7 @@
 //     const listingId = generateId();
 
 //     await pool.query(
-//       `INSERT INTO listings (id, user_id, type, category, title, description, location_lat, location_lng, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+//       `INSERT INTO listings (id, user_id, type, category, title, description, location_lat, location_lng, image_urls) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 //       [
 //         listingId,
 //         userId,
@@ -196,7 +196,7 @@
 //         description,
 //         location_lat,
 //         location_lng,
-//         image_url,
+//         JSON.stringify(finalImageUrls),
 //       ]
 //     );
 
@@ -1015,8 +1015,28 @@ exports.createListing = async (req, res, next) => {
       description,
       location_lat,
       location_lng,
-      image_url,
+      image_url, // Keep for backward compatibility
+      image_urls,
     } = req.body;
+
+    // Handle image URLs
+    let finalImageUrls = [];
+    if (image_urls) {
+      try {
+        finalImageUrls = JSON.parse(image_urls);
+        // Validate that all URLs are proper HTTP/HTTPS URLs
+        const urlRegex = /^https?:\/\/.+/;
+        finalImageUrls = finalImageUrls.filter((url) => urlRegex.test(url));
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image_urls format',
+        });
+      }
+    } else if (image_url) {
+      // Backward compatibility: if image_url is provided, use it as single image
+      finalImageUrls = [image_url];
+    }
 
     // If location is not provided, use the user's (the listing owner) location
     let finalLocationLat = location_lat;
@@ -1041,7 +1061,7 @@ exports.createListing = async (req, res, next) => {
       `
       INSERT INTO listings (
         id, user_id, type, category, title,
-        description, location_lat, location_lng, image_url
+        description, location_lat, location_lng, image_urls
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       `,
@@ -1054,7 +1074,7 @@ exports.createListing = async (req, res, next) => {
         description,
         finalLocationLat,
         finalLocationLng,
-        image_url,
+        JSON.stringify(finalImageUrls),
       ]
     );
 
@@ -1077,8 +1097,6 @@ exports.createListing = async (req, res, next) => {
 
     const listing = listingRows[0];
     listing.timeAgo = timeAgo(listing.created_at);
-
-    console.log('Created listing:', listing);
 
     /* ---------------------------
        Real-time emit WITHOUT distance

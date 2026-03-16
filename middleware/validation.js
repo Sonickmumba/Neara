@@ -45,11 +45,8 @@ const validateRegister = [
 ];
 
 const validateLogin = [
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Valid email is required'),
-    // .normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  // .normalizeEmail(),
   body('password').notEmpty().withMessage('Password is required'),
   handleValidationErrors,
 ];
@@ -115,6 +112,22 @@ const validateCreateListing = [
     .isIn(['available', 'pending', 'traded'])
     .withMessage('Invalid status'),
   body('image_url').optional().trim(),
+  body('image_urls')
+    .optional()
+    .custom((value) => {
+      if (!value) return true; // Allow empty
+      try {
+        const urls = JSON.parse(value);
+        if (!Array.isArray(urls)) return false;
+        // Validate each URL is a proper HTTP/HTTPS URL
+        return urls.every(
+          (url) => typeof url === 'string' && /^https?:\/\/.+/.test(url)
+        );
+      } catch {
+        return false;
+      }
+    })
+    .withMessage('image_urls must be a valid JSON array of URLs'),
   body('location_lat')
     .optional()
     .isFloat({ min: -90, max: 90 })
