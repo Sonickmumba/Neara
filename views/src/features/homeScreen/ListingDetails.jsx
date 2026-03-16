@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import apiClient from '../../services/api';
 import { FavoriteButton } from '../../components/FavoriteButton';
 import { ReputationBadge } from '../../components/ReputableBadge';
+import { formatMonthYear } from '../../utils/date.js'
 
 export function ListingDetails() {
   const { selectedListingId } = useParams();
@@ -292,7 +293,7 @@ export function ListingDetails() {
                 />
               </div>
               <div className="text-sm text-gray-600">
-                {listing.favorites_count || 0} favorites • Member since recently
+                {listing.tradesCompleted || 0} trades completed • Member since {formatMonthYear(listing.created_at)} 
               </div>
             </div>
             <User className="w-5 h-5 text-gray-400" />
