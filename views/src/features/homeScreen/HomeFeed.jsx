@@ -28,10 +28,6 @@ export function HomeFeed() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
 
-  const handleFavoriteToggle = (listingId, e) => {
-    e.stopPropagation();
-  };
-
   useEffect(() => {
     if (status === 'idle') {
       dispatch(fetchHomeFeed());
@@ -64,10 +60,7 @@ export function HomeFeed() {
         </div>
       )}
       <div className="px-4 py-4 space-y-4">
-        <ListingsFeed
-          listings={listings}
-          onFavoriteToggle={handleFavoriteToggle}
-        />
+        <ListingsFeed listings={listings} />
       </div>
       <NotificationsPanel
         isOpen={showNotifications}
