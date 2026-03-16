@@ -1,13 +1,31 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../services/api';
 import { toast } from 'sonner';
 
-export function useFavoriteToggle({ listingId, initialIsFavorited = false }) {
+export function useFavoriteToggle({
+  listingId,
+  initialIsFavorited = false,
+  onToggle,
+  onError,
+}) {
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited);
   const [hasChecked, setHasChecked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const inFlightRef = useRef(false);
+  // Use refs so the callbacks are always up-to-date without re-creating toggleFavorite
+  const onToggleRef = useRef(onToggle);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onToggleRef.current = onToggle;
+  }, [onToggle]);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+  const isLoggedIn = useSelector((state) => !!state.auth.user);
+  const navigate = useNavigate();
 
   /* 🔍 Check favorite status on mount */
   useEffect(() => {
@@ -40,6 +58,12 @@ export function useFavoriteToggle({ listingId, initialIsFavorited = false }) {
   const toggleFavorite = useCallback(async () => {
     if (inFlightRef.current) return;
 
+    // Check if user is logged in before proceeding
+    if (!isLoggedIn) {
+      navigate('/loginSignup');
+      return;
+    }
+
     const previousState = isFavorited;
     const nextState = !previousState;
 
@@ -48,6 +72,7 @@ export function useFavoriteToggle({ listingId, initialIsFavorited = false }) {
 
     // 🚀 Optimistic update (without toast)
     setIsFavorited(nextState);
+    onToggleRef.current?.(nextState);
 
     try {
       if (nextState) {
@@ -62,6 +87,7 @@ export function useFavoriteToggle({ listingId, initialIsFavorited = false }) {
     } catch (err) {
       // ❌ Rollback optimistic update
       setIsFavorited(previousState);
+      onErrorRef.current?.(previousState);
 
       if (err.response?.status === 401) {
         toast.error('Please log in to save favorites');

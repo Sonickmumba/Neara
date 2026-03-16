@@ -20,8 +20,8 @@
 //       FROM listings l
 //       JOIN users u ON l.user_id = u.id
 //       LEFT JOIN (
-//         SELECT listing_id, COUNT(*) as conversation_count 
-//         FROM conversations 
+//         SELECT listing_id, COUNT(*) as conversation_count
+//         FROM conversations
 //         GROUP BY listing_id
 //       ) conversation_counts ON l.id = conversation_counts.listing_id
 //       WHERE 1 = 1
@@ -126,11 +126,11 @@
 //             SELECT l.*, u.name AS authors_name, u.neighborhood, u.rating as author_rating,
 //               u.completed_trades, u.location_lat, u.location_lng,
 //               COALESCE(conversation_counts.conversation_count, 0) as responses_count
-//               FROM listings l 
+//               FROM listings l
 //               JOIN users u ON l.user_id = u.id
 //               LEFT JOIN (
-//                 SELECT listing_id, COUNT(*) as conversation_count 
-//                 FROM conversations 
+//                 SELECT listing_id, COUNT(*) as conversation_count
+//                 FROM conversations
 //                 GROUP BY listing_id
 //               ) conversation_counts ON l.id = conversation_counts.listing_id
 //               WHERE l.id = $1
@@ -186,7 +186,7 @@
 //     const listingId = generateId();
 
 //     await pool.query(
-//       `INSERT INTO listings (id, user_id, type, category, title, description, location_lat, location_lng, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+//       `INSERT INTO listings (id, user_id, type, category, title, description, location_lat, location_lng, image_urls) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 //       [
 //         listingId,
 //         userId,
@@ -196,12 +196,12 @@
 //         description,
 //         location_lat,
 //         location_lng,
-//         image_url,
+//         JSON.stringify(finalImageUrls),
 //       ]
 //     );
 
 //     const newListingResult = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         l.*,
 //         u.name AS author_name,
 //         u.neighborhood,
@@ -212,8 +212,8 @@
 //       FROM listings l
 //       JOIN users u ON l.user_id = u.id
 //       LEFT JOIN (
-//         SELECT listing_id, COUNT(*) as conversation_count 
-//         FROM conversations 
+//         SELECT listing_id, COUNT(*) as conversation_count
+//         FROM conversations
 //         GROUP BY listing_id
 //       ) conversation_counts ON l.id = conversation_counts.listing_id
 //       WHERE l.id = $1`,
@@ -237,8 +237,8 @@
 //     // Create notifications for users in the same neighborhood
 //     try {
 //       const nearbyUsersResult = await pool.query(
-//         `SELECT id, name FROM users 
-//          WHERE neighborhood = $1 AND id != $2 
+//         `SELECT id, name FROM users
+//          WHERE neighborhood = $1 AND id != $2
 //          LIMIT 10`, // Limit to prevent too many notifications
 //         [listing.neighborhood, userId]
 //       );
@@ -419,7 +419,7 @@
 //     // Get reference listing WITH neighborhood
 //     const referenceResult = await pool.query(
 //       `
-//       SELECT 
+//       SELECT
 //         l.category,
 //         l.type,
 //         l.user_id,
@@ -471,8 +471,6 @@
 //     next(error);
 //   }
 // };
-
-
 
 // second copy
 
@@ -806,14 +804,10 @@
 //   }
 // };
 
-
-
-
 const { validationResult } = require('express-validator');
 const pool = require('../config/database');
 const { generateId, timeAgo } = require('../utils/helpers');
 const { createNotification } = require('./notificationsController');
-
 
 /**
  * GET /listings
@@ -976,6 +970,9 @@ exports.getListingsById = async (req, res, next) => {
         u.name AS author_name,
         u.neighborhood,
         u.rating AS author_rating,
+        u.total_ratings AS totalRating,
+        u.email_verified AS isVerified,
+        u.completed_trades AS completedTrades,
         COALESCE(cc.count, 0) AS responses_count
       FROM listings l
       JOIN users u ON l.user_id = u.id
@@ -1004,6 +1001,122 @@ exports.getListingsById = async (req, res, next) => {
 };
 
 /**
+ * GET /listings/:id/similar
+ * This is a Scalable similar-listings endpoint with SQL-level ranking.
+ */
+exports.getSimilarListings = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const limit = Math.min(Number(req.query.limit) || 4, 20);
+
+    const baseListingResult = await pool.query(
+      `
+      SELECT id, user_id, category, type, location_lat, location_lng
+      FROM listings
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (!baseListingResult.rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Listing not found',
+      });
+    }
+
+    const { rows } = await pool.query(
+      `
+      WITH base AS (
+        SELECT id, user_id, category, type, location_lat, location_lng
+        FROM listings
+        WHERE id = $1
+      )
+      SELECT
+        l.*,
+        u.name AS author_name,
+        u.neighborhood,
+        u.rating AS author_rating,
+        u.total_ratings AS totalrating,
+        u.email_verified AS isverified,
+        COALESCE(cc.count, 0) AS responses_count,
+        CASE
+          WHEN b.location_lat IS NOT NULL
+            AND b.location_lng IS NOT NULL
+            AND l.location_lat IS NOT NULL
+            AND l.location_lng IS NOT NULL
+          THEN (
+            6371 * acos(
+              cos(radians(b.location_lat)) *
+              cos(radians(l.location_lat)) *
+              cos(radians(l.location_lng) - radians(b.location_lng)) +
+              sin(radians(b.location_lat)) *
+              sin(radians(l.location_lat))
+            )
+          )
+          ELSE NULL
+        END AS distance,
+        (
+          CASE WHEN l.category = b.category THEN 3 ELSE 0 END +
+          CASE WHEN l.type = b.type THEN 2 ELSE 0 END +
+          CASE
+            WHEN b.location_lat IS NOT NULL
+              AND b.location_lng IS NOT NULL
+              AND l.location_lat IS NOT NULL
+              AND l.location_lng IS NOT NULL
+            THEN GREATEST(
+              0,
+              1 - (
+                (
+                  6371 * acos(
+                    cos(radians(b.location_lat)) *
+                    cos(radians(l.location_lat)) *
+                    cos(radians(l.location_lng) - radians(b.location_lng)) +
+                    sin(radians(b.location_lat)) *
+                    sin(radians(l.location_lat))
+                  )
+                ) / 25
+              )
+            )
+            ELSE 0
+          END
+        ) AS similarity_score
+      FROM base b
+      JOIN listings l ON l.id <> b.id
+      JOIN users u ON l.user_id = u.id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)
+        FROM conversations c
+        WHERE c.listing_id = l.id
+      ) cc(count) ON true
+      WHERE l.status = 'active'
+        AND l.user_id <> b.user_id
+      ORDER BY similarity_score DESC, distance ASC NULLS LAST, l.created_at DESC
+      LIMIT $2
+      `,
+      [id, limit]
+    );
+
+    rows.forEach((listing) => {
+      listing.timeAgo = timeAgo(listing.created_at);
+      if (listing.distance !== null) {
+        listing.distance = Number(listing.distance.toFixed(1));
+      }
+      delete listing.similarity_score;
+    });
+
+    res.json({
+      success: true,
+      count: rows.length,
+      data: rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /listings
  * Distance is NOT computed here
  */
@@ -1021,19 +1134,55 @@ exports.createListing = async (req, res, next) => {
       description,
       location_lat,
       location_lng,
-      image_url,
+      image_url, // Keep for backward compatibility
+      image_urls,
     } = req.body;
+
+    // Handle image URLs
+    let finalImageUrls = [];
+    if (image_urls) {
+      try {
+        finalImageUrls = JSON.parse(image_urls);
+        // Validate that all URLs are proper HTTP/HTTPS URLs
+        const urlRegex = /^https?:\/\/.+/;
+        finalImageUrls = finalImageUrls.filter((url) => urlRegex.test(url));
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image_urls format',
+        });
+      }
+    } else if (image_url) {
+      // Backward compatibility: if image_url is provided, use it as single image
+      finalImageUrls = [image_url];
+    }
+
+    // If location is not provided, use the user's (the listing owner) location
+    let finalLocationLat = location_lat;
+    let finalLocationLng = location_lng;
+
+    if (finalLocationLat == null || finalLocationLng == null) {
+      // Fetch user's location
+      const userResult = await pool.query(
+        'SELECT location_lat, location_lng FROM users WHERE id = $1',
+        [req.user.id]
+      );
+
+      if (userResult.rows[0]) {
+        finalLocationLat = userResult.rows[0].location_lat;
+        finalLocationLng = userResult.rows[0].location_lng;
+      }
+    }
 
     const listingId = generateId();
 
-    const { rows } = await pool.query(
+    await pool.query(
       `
       INSERT INTO listings (
         id, user_id, type, category, title,
-        description, location_lat, location_lng, image_url
+        description, location_lat, location_lng, image_urls
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-      RETURNING *
       `,
       [
         listingId,
@@ -1042,19 +1191,36 @@ exports.createListing = async (req, res, next) => {
         category,
         title,
         description,
-        location_lat,
-        location_lng,
-        image_url,
+        finalLocationLat,
+        finalLocationLng,
+        JSON.stringify(finalImageUrls),
       ]
     );
 
-    const listing = rows[0];
+    // Fetch the listing back with author metadata, matching the shape returned by GET /api/listings
+    const { rows: listingRows } = await pool.query(
+      `
+      SELECT
+        l.*,
+        u.name AS author_name,
+        u.neighborhood,
+        u.rating AS author_rating,
+        u.total_ratings AS totalRating,
+        u.email_verified AS isVerified
+      FROM listings l
+      JOIN users u ON l.user_id = u.id
+      WHERE l.id = $1
+      `,
+      [listingId]
+    );
+
+    const listing = listingRows[0];
     listing.timeAgo = timeAgo(listing.created_at);
 
     /* ---------------------------
        Real-time emit WITHOUT distance
     ---------------------------- */
-    req.app.get('io')?.emit('listing:new', listing);
+    // req.app.get('io')?.emit('listing:new', listing);
 
     /* ---------------------------
        Async notification fan-out
@@ -1142,7 +1308,9 @@ exports.updateListing = async (req, res, next) => {
     });
 
     if (!fields.length) {
-      return res.status(400).json({ success: false, message: 'No fields to update' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'No fields to update' });
     }
 
     params.push(id, userId);

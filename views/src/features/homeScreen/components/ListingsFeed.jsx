@@ -3,7 +3,7 @@ import { FavoriteButton } from '../../../components/FavoriteButton';
 import { ReputationBadge } from '../../../components/ReputableBadge';
 import { MessageSquare } from 'lucide-react';
 
-export function ListingsFeed({ listings, onFavoriteToggle }) {
+export function ListingsFeed({ listings }) {
   const navigate = useNavigate();
 
   if (!listings || listings.length === 0) {
@@ -18,16 +18,11 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
           className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer relative"
         >
           <div className="absolute top-3 right-3 z-10">
-            <FavoriteButton
-              listingId={listing.id}
-              onToggle={(e) => onFavoriteToggle(listing.id, e)}
-            />
+            <FavoriteButton listingId={listing.id} />
           </div>
 
           <div
-            onClick={() =>
-              navigate('listing-details', { selectedListingId: listing.id })
-            }
+            onClick={() => navigate(`listing-details/${listing.id}`)}
             className="pr-8"
           >
             <div className="flex items-start justify-between mb-3">
@@ -55,14 +50,15 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-sm">
-                  {listing.author_name
+                  {(listing.author_name ?? 'Unknown')
                     .split(' ')
+                    .filter(Boolean)
                     .map((n) => n[0])
                     .join('')}
                 </div>
                 <div>
                   <div className="text-sm font-medium mb-1">
-                    {listing.author_name}
+                    {listing.author_name ?? 'Unknown'}
                   </div>
                   <div className="flex items-center gap-2">
                     <ReputationBadge
@@ -73,8 +69,11 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
                     />
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {listing.neighborhood} • {listing.distance} km •{' '}
-                    {listing.timeAgo}
+                    {listing.neighborhood} •{' '}
+                    {listing.distance != null
+                      ? `${listing.distance} km`
+                      : 'Distance unknown'}{' '}
+                    • {listing.timeAgo}
                   </div>
                 </div>
               </div>

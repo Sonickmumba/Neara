@@ -45,11 +45,8 @@ const validateRegister = [
 ];
 
 const validateLogin = [
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Valid email is required'),
-    // .normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  // .normalizeEmail(),
   body('password').notEmpty().withMessage('Password is required'),
   handleValidationErrors,
 ];
@@ -80,6 +77,18 @@ const validateVerifyEmail = [
  * LISTING VALIDATIONS
  */
 const validateCreateListing = [
+  body('type')
+    .trim()
+    .notEmpty()
+    .withMessage('Type is required')
+    .isIn(['offer', 'need'])
+    .withMessage('Type must be either "offer" or "need"'),
+  body('category')
+    .trim()
+    .notEmpty()
+    .withMessage('Category is required')
+    .isIn(['skills', 'goods', 'services'])
+    .withMessage('Category must be one of: skills, goods, services'),
   body('title')
     .trim()
     .notEmpty()
@@ -92,11 +101,6 @@ const validateCreateListing = [
     .withMessage('Description is required')
     .isLength({ min: 10, max: 2000 })
     .withMessage('Description must be between 10 and 2000 characters'),
-  //   body('category_id')
-  //     .optional()
-  //     .withMessage('Category is required')
-  //     .isUUID()
-  //     .withMessage('Invalid category ID'),
   body('condition')
     .optional()
     .trim()
@@ -108,6 +112,22 @@ const validateCreateListing = [
     .isIn(['available', 'pending', 'traded'])
     .withMessage('Invalid status'),
   body('image_url').optional().trim(),
+  body('image_urls')
+    .optional()
+    .custom((value) => {
+      if (!value) return true; // Allow empty
+      try {
+        const urls = JSON.parse(value);
+        if (!Array.isArray(urls)) return false;
+        // Validate each URL is a proper HTTP/HTTPS URL
+        return urls.every(
+          (url) => typeof url === 'string' && /^https?:\/\/.+/.test(url)
+        );
+      } catch {
+        return false;
+      }
+    })
+    .withMessage('image_urls must be a valid JSON array of URLs'),
   body('location_lat')
     .optional()
     .isFloat({ min: -90, max: 90 })

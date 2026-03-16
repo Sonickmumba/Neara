@@ -1,6 +1,18 @@
 import { Map, PlusCircle, MessageSquare } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 
 export function QuickActions({ navigate, showActivity, setShowActivity }) {
+  const isLoggedIn = useSelector((state) => !!state.auth.user);
+  const routerNavigate = useNavigate();
+
+  const handleCreateListing = () => {
+    if (!isLoggedIn) {
+      routerNavigate('/loginSignup');
+      return;
+    }
+    navigate('create-listing');
+  };
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-4">
       <div className="grid grid-cols-4 gap-3">
@@ -12,7 +24,7 @@ export function QuickActions({ navigate, showActivity, setShowActivity }) {
           <span className="text-xs text-blue-600">Map</span>
         </button>
         <button
-          onClick={() => navigate('create-listing')}
+          onClick={handleCreateListing}
           className="flex flex-col items-center gap-2 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
         >
           <PlusCircle className="w-6 h-6 text-green-600" />

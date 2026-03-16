@@ -7,4 +7,18 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+// Global 401 interceptor setup function
+export const setupAuthInterceptor = (navigate) => {
+  apiClient.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Redirect to login/signup on authentication errors
+        navigate('/loginSignup');
+      }
+      return Promise.reject(error);
+    }
+  );
+};
+
 export default apiClient;

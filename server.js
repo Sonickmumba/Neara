@@ -27,6 +27,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const tradeRoutes = require('./routes/tradeRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const imageRoutes = require('./routes/imageRoutes');
 
 const app = express();
 
@@ -92,6 +93,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/images', imageRoutes);
 
 app.get('/api/status', (req, res) => {
   res.json({ success: true, message: 'API is running' });
