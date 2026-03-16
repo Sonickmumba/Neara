@@ -152,6 +152,18 @@ export function Favorites() {
                     listingId={listing.id}
                     initialIsFavorited={true}
                     size="md"
+                    onToggle={(newState) => {
+                      // This is to optimistically remove card the instant the heart is untapped
+                      if (!newState) {
+                        setFavorites((prev) =>
+                          prev.filter((f) => f.id !== listing.id)
+                        );
+                      }
+                    }}
+                    onError={() => {
+                      // API failed — re-fetch to restore the card
+                      fetchFavorites();
+                    }}
                   />
                 </div>
 
