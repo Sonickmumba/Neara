@@ -1001,6 +1001,122 @@ exports.getListingsById = async (req, res, next) => {
 };
 
 /**
+ * GET /listings/:id/similar
+ * This is a Scalable similar-listings endpoint with SQL-level ranking.
+ */
+exports.getSimilarListings = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const limit = Math.min(Number(req.query.limit) || 4, 20);
+
+    const baseListingResult = await pool.query(
+      `
+      SELECT id, user_id, category, type, location_lat, location_lng
+      FROM listings
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (!baseListingResult.rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Listing not found',
+      });
+    }
+
+    const { rows } = await pool.query(
+      `
+      WITH base AS (
+        SELECT id, user_id, category, type, location_lat, location_lng
+        FROM listings
+        WHERE id = $1
+      )
+      SELECT
+        l.*,
+        u.name AS author_name,
+        u.neighborhood,
+        u.rating AS author_rating,
+        u.total_ratings AS totalrating,
+        u.email_verified AS isverified,
+        COALESCE(cc.count, 0) AS responses_count,
+        CASE
+          WHEN b.location_lat IS NOT NULL
+            AND b.location_lng IS NOT NULL
+            AND l.location_lat IS NOT NULL
+            AND l.location_lng IS NOT NULL
+          THEN (
+            6371 * acos(
+              cos(radians(b.location_lat)) *
+              cos(radians(l.location_lat)) *
+              cos(radians(l.location_lng) - radians(b.location_lng)) +
+              sin(radians(b.location_lat)) *
+              sin(radians(l.location_lat))
+            )
+          )
+          ELSE NULL
+        END AS distance,
+        (
+          CASE WHEN l.category = b.category THEN 3 ELSE 0 END +
+          CASE WHEN l.type = b.type THEN 2 ELSE 0 END +
+          CASE
+            WHEN b.location_lat IS NOT NULL
+              AND b.location_lng IS NOT NULL
+              AND l.location_lat IS NOT NULL
+              AND l.location_lng IS NOT NULL
+            THEN GREATEST(
+              0,
+              1 - (
+                (
+                  6371 * acos(
+                    cos(radians(b.location_lat)) *
+                    cos(radians(l.location_lat)) *
+                    cos(radians(l.location_lng) - radians(b.location_lng)) +
+                    sin(radians(b.location_lat)) *
+                    sin(radians(l.location_lat))
+                  )
+                ) / 25
+              )
+            )
+            ELSE 0
+          END
+        ) AS similarity_score
+      FROM base b
+      JOIN listings l ON l.id <> b.id
+      JOIN users u ON l.user_id = u.id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)
+        FROM conversations c
+        WHERE c.listing_id = l.id
+      ) cc(count) ON true
+      WHERE l.status = 'active'
+        AND l.user_id <> b.user_id
+      ORDER BY similarity_score DESC, distance ASC NULLS LAST, l.created_at DESC
+      LIMIT $2
+      `,
+      [id, limit]
+    );
+
+    rows.forEach((listing) => {
+      listing.timeAgo = timeAgo(listing.created_at);
+      if (listing.distance !== null) {
+        listing.distance = Number(listing.distance.toFixed(1));
+      }
+      delete listing.similarity_score;
+    });
+
+    res.json({
+      success: true,
+      count: rows.length,
+      data: rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /listings
  * Distance is NOT computed here
  */

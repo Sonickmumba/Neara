@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, MapPin, Calendar, User, Heart, Share2, Flag, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import {
+  ArrowLeft,
+  MessageSquare,
+  MapPin,
+  User,
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../services/api';
 import { FavoriteButton } from '../../components/FavoriteButton';
 import { ReputationBadge } from '../../components/ReputableBadge';
-import { formatMonthYear } from '../../utils/date.js'
+import { formatMonthYear } from '../../utils/date.js';
 
 export function ListingDetails() {
   const { selectedListingId } = useParams();
@@ -14,6 +23,8 @@ export function ListingDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [similarListings, setSimilarListings] = useState([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
 
   useEffect(() => {
     const fetchListingDetails = async () => {
@@ -25,7 +36,9 @@ export function ListingDetails() {
 
       try {
         setLoading(true);
-        const response = await apiClient.get(`/api/listings/${selectedListingId}`);
+        const response = await apiClient.get(
+          `/api/listings/${selectedListingId}`
+        );
 
         if (response.data?.success) {
           setListing(response.data.data);
@@ -48,9 +61,43 @@ export function ListingDetails() {
     fetchListingDetails();
   }, [selectedListingId]);
 
+  useEffect(() => {
+    const fetchSimilarListings = async () => {
+      if (!selectedListingId) {
+        setSimilarListings([]);
+        return;
+      }
+
+      try {
+        setSimilarLoading(true);
+        const response = await apiClient.get(
+          `/api/listings/${selectedListingId}/similar`,
+          {
+            params: { limit: 3 },
+          }
+        );
+
+        if (response.data?.success && Array.isArray(response.data.data)) {
+          setSimilarListings(response.data.data);
+        } else {
+          setSimilarListings([]);
+        }
+      } catch (err) {
+        console.error('Error fetching similar listings:', err);
+        setSimilarListings([]);
+      } finally {
+        setSimilarLoading(false);
+      }
+    };
+
+    fetchSimilarListings();
+  }, [selectedListingId]);
+
   const handleContact = () => {
     // TODO: Implement chat functionality
-    toast.info('Chat functionality coming soon! For now, you can contact the seller directly.');
+    toast.info(
+      'Chat functionality coming soon! For now, you can contact the seller directly.'
+    );
   };
 
   const handleShare = async () => {
@@ -86,6 +133,10 @@ export function ListingDetails() {
     }
   };
 
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [selectedListingId]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -113,36 +164,6 @@ export function ListingDetails() {
       </div>
     );
   }
-
-  // Mock similar listings - in real app, this would be fetched from API
-  const similarListings = [
-    {
-      id: 'b9703543-ebca-4a54-bdd7-bff0edc8f049',
-      type: 'offer',
-      category: 'Skills',
-      title: 'Piano lessons for kids and adults',
-      author: 'James Wilson',
-      neighborhood: 'West End',
-      distance: '1.5 mi',
-      timeAgo: '1 day ago',
-      rating: 4.7,
-      isVerified: true,
-      totalRatings: 23
-    },
-    {
-      id: 'ae6c4c08-dbbf-4f98-abd5-05933403ab50',
-      type: 'offer',
-      category: 'Skills',
-      title: 'Drum lessons - beginner to intermediate',
-      author: 'Maria Garcia',
-      neighborhood: 'Downtown',
-      distance: '0.8 mi',
-      timeAgo: '3 days ago',
-      rating: 4.8,
-      isVerified: false,
-      totalRatings: 17
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -234,11 +255,13 @@ export function ListingDetails() {
         <div className="bg-white border-b border-gray-200 p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2 flex-wrap flex-1">
-              <span className={`px-3 py-1 rounded-full text-sm ${
-                listing.type === 'offer'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-orange-100 text-orange-700'
-              }`}>
+              <span
+                className={`px-3 py-1 rounded-full text-sm ${
+                  listing.type === 'offer'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-orange-100 text-orange-700'
+                }`}
+              >
                 {listing.type === 'offer' ? '🤝 Offering' : '🙋 Looking for'}
               </span>
               <span className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700">
@@ -250,12 +273,20 @@ export function ListingDetails() {
 
           <h1 className="mb-4">{listing.title}</h1>
 
-          <p className="text-gray-700 mb-6 leading-relaxed whitespace-pre-line">{listing.description}</p>
+          <p className="text-gray-700 mb-6 leading-relaxed whitespace-pre-line">
+            {listing.description}
+          </p>
 
           <div className="flex flex-col gap-3 mb-6">
             <div className="flex items-center gap-2 text-gray-600">
               <MapPin className="w-5 h-5" />
-              <span>{listing.neighborhood} • {listing.distance != null ? `${listing.distance} km` : 'Distance unknown'} away</span>
+              <span>
+                {listing.neighborhood} •{' '}
+                {listing.distance != null
+                  ? `${listing.distance} km`
+                  : 'Distance unknown'}{' '}
+                away
+              </span>
             </div>
             <div className="flex items-center gap-2 text-gray-600">
               <Clock className="w-5 h-5" />
@@ -272,7 +303,9 @@ export function ListingDetails() {
         <div className="bg-white border-b border-gray-200 p-6">
           <div className="mb-3 text-gray-600 font-medium">Posted by</div>
           <button
-            onClick={() => navigate('user-profile', { selectedUserId: listing.user_id })}
+            onClick={() =>
+              navigate('user-profile', { selectedUserId: listing.user_id })
+            }
             className="flex items-center gap-3 w-full p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
           >
             <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-lg">
@@ -283,7 +316,9 @@ export function ListingDetails() {
                 .join('')}
             </div>
             <div className="flex-1 text-left">
-              <div className="font-medium mb-2">{listing.author_name ?? 'Unknown'}</div>
+              <div className="font-medium mb-2">
+                {listing.author_name ?? 'Unknown'}
+              </div>
               <div className="flex items-center gap-2 mb-1">
                 <ReputationBadge
                   rating={listing.author_rating}
@@ -293,7 +328,8 @@ export function ListingDetails() {
                 />
               </div>
               <div className="text-sm text-gray-600">
-                {listing.tradesCompleted || 0} trades completed • Member since {formatMonthYear(listing.created_at)} 
+                {listing.tradesCompleted || 0} trades completed • Member since{' '}
+                {formatMonthYear(listing.created_at)}
               </div>
             </div>
             <User className="w-5 h-5 text-gray-400" />
@@ -303,39 +339,71 @@ export function ListingDetails() {
         {/* Similar Listings */}
         <div className="p-6">
           <h3 className="mb-4">Similar Listings</h3>
-          <div className="space-y-3">
-            {similarListings.map((item) => (
-              <div key={item.id} className="relative">
-                <FavoriteButton listingId={item.id} size="sm" className="absolute top-3 right-3 z-10" />
-                <button
-                  onClick={() => navigate(`listing-details/${item.id}`)}
-                  className="w-full bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow text-left pr-12"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
-                      {item.category}
-                    </span>
-                  </div>
-                  <div className="font-medium mb-2">{item.title}</div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white text-xs">
-                      {item.author.split(' ').map(n => n[0]).join('')}
+          {similarLoading && (
+            <div className="text-sm text-gray-600">
+              Loading similar listings...
+            </div>
+          )}
+
+          {!similarLoading && similarListings.length === 0 && (
+            <div className="text-sm text-gray-600">
+              No similar listings found yet.
+            </div>
+          )}
+
+          {!similarLoading && similarListings.length > 0 && (
+            <div className="space-y-3">
+              {similarListings.map((item) => (
+                <div key={item.id} className="relative">
+                  <FavoriteButton
+                    listingId={item.id}
+                    size="sm"
+                    className="absolute top-3 right-3 z-10"
+                  />
+                  <button
+                    onClick={() =>
+                      navigate(`/homeFeed/listing-details/${item.id}`)
+                    }
+                    className="w-full bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow text-left pr-12"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                        {item.category}
+                      </span>
                     </div>
-                    <div>
-                      <div className="text-sm text-gray-700">{item.author}</div>
-                      <ReputationBadge
-                        rating={item.rating}
-                        isVerified={item.isVerified}
-                        totalRatings={item.totalRatings}
-                        size="sm"
-                      />
+                    <div className="font-medium mb-2">{item.title}</div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white text-xs">
+                        {(item.author_name ?? 'Unknown')
+                          .split(' ')
+                          .filter(Boolean)
+                          .map((n) => n[0])
+                          .join('')}
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-700">
+                          {item.author_name ?? 'Unknown'}
+                        </div>
+                        <ReputationBadge
+                          rating={item.author_rating}
+                          isVerified={item.isverified}
+                          totalRatings={item.totalrating}
+                          size="sm"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-sm text-gray-600">{item.neighborhood} • {item.distance} • {item.timeAgo}</div>
-                </button>
-              </div>
-            ))}
-          </div>
+                    <div className="text-sm text-gray-600">
+                      {item.neighborhood || 'Neighborhood unknown'} •{' '}
+                      {item.distance != null
+                        ? `${item.distance} km`
+                        : 'Distance unknown'}{' '}
+                      • {item.timeAgo || 'Recently'}
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

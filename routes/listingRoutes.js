@@ -15,6 +15,13 @@ router.get('/', listingsController.getAllListings);
 // GET /api/listings/:id - Get listing by ID
 router.get('/:id', validateListingId, listingsController.getListingsById);
 
+// GET /api/listings/:id/similar - Get similar listings
+router.get(
+  '/:id/similar',
+  validateListingId,
+  listingsController.getSimilarListings
+);
+
 // POST /api/listings - Create listing (protected)
 router.post(
   '/',
