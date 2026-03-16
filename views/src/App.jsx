@@ -5,6 +5,7 @@ import {
   Navigate,
   useNavigate,
 } from 'react-router-dom';
+import { useEffect } from 'react';
 
 import './App.css';
 
@@ -17,10 +18,18 @@ import { HomeFeed } from './features/homeScreen/HomeFeed';
 import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
 import { Favorites } from './features/homeScreen/Favorites';
 import { CreateListing } from './components/CreateListing';
+import { RequireAuth } from './components/RequireAuth';
+import { setupAuthInterceptor } from './services/api';
 import { Toaster } from 'sonner';
 
 function App() {
   const navigate = useNavigate();
+
+  // Setup global auth interceptor for API calls
+  useEffect(() => {
+    setupAuthInterceptor(navigate);
+  }, [navigate]);
+
   return (
     <>
       <Toaster position="top-center" richColors />
@@ -38,7 +47,16 @@ function App() {
           <Route path="/homeFeed" element={<HomeFeedLayout />}>
             <Route index element={<HomeFeed />} />
             <Route path="favorites" element={<Favorites />} />
-            <Route path="create-listing" element={<CreateListing navigate={(path, state) => navigate(path, { state })} />} />
+            <Route
+              path="create-listing"
+              element={
+                <RequireAuth>
+                  <CreateListing
+                    navigate={(path, state) => navigate(path, { state })}
+                  />
+                </RequireAuth>
+              }
+            />
             {/* additional nested paths (notifications, user-profile, etc.) can go here */}
           </Route>
         </Routes>

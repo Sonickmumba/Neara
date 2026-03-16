@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../services/api';
 import { toast } from 'sonner';
 
@@ -8,6 +10,8 @@ export function useFavoriteToggle({ listingId, initialIsFavorited = false }) {
   const [isLoading, setIsLoading] = useState(false);
 
   const inFlightRef = useRef(false);
+  const isLoggedIn = useSelector((state) => !!state.auth.user);
+  const navigate = useNavigate();
 
   /* 🔍 Check favorite status on mount */
   useEffect(() => {
@@ -39,6 +43,12 @@ export function useFavoriteToggle({ listingId, initialIsFavorited = false }) {
   /* 🔁 Toggle favorite */
   const toggleFavorite = useCallback(async () => {
     if (inFlightRef.current) return;
+
+    // Check if user is logged in before proceeding
+    if (!isLoggedIn) {
+      navigate('/loginSignup');
+      return;
+    }
 
     const previousState = isFavorited;
     const nextState = !previousState;
