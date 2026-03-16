@@ -25,9 +25,7 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
           </div>
 
           <div
-            onClick={() =>
-              navigate(`listing-details/${listing.id}`)
-            }
+            onClick={() => navigate(`listing-details/${listing.id}`)}
             className="pr-8"
           >
             <div className="flex items-start justify-between mb-3">
