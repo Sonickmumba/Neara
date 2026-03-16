@@ -58,7 +58,7 @@ export function HomeFeed() {
         <div className="bg-white border-b border-gray-200 p-4">
           <RecentActivity
             onListingClick={(listingId) =>
-              navigate('listing-details', { selectedListingId: listingId })
+              navigate(`listing-details/${listingId}`)
             }
           />
         </div>
@@ -83,9 +83,7 @@ export function HomeFeed() {
               selectedTradeId: notification.referenceId,
             });
           } else if (notification.type === 'listing') {
-            navigate('listing-details', {
-              selectedListingId: notification.referenceId,
-            });
+            navigate(`listing-details/${notification.referenceId}`);
           }
         }}
       />

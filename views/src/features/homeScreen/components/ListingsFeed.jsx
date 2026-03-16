@@ -26,7 +26,7 @@ export function ListingsFeed({ listings, onFavoriteToggle }) {
 
           <div
             onClick={() =>
-              navigate('listing-details', { selectedListingId: listing.id })
+              navigate(`listing-details/${listing.id}`)
             }
             className="pr-8"
           >

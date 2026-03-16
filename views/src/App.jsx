@@ -17,6 +17,7 @@ import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerificatio
 import { HomeFeed } from './features/homeScreen/HomeFeed';
 import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
 import { Favorites } from './features/homeScreen/Favorites';
+import { ListingDetails } from './features/homeScreen/ListingDetails';
 import { CreateListing } from './components/CreateListing';
 import { RequireAuth } from './components/RequireAuth';
 import { setupAuthInterceptor } from './services/api';
@@ -47,6 +48,7 @@ function App() {
           <Route path="/homeFeed" element={<HomeFeedLayout />}>
             <Route index element={<HomeFeed />} />
             <Route path="favorites" element={<Favorites />} />
+            <Route path="listing-details/:selectedListingId" element={<ListingDetails />} />
             <Route
               path="create-listing"
               element={

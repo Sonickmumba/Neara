@@ -4,7 +4,8 @@ import { useFavoriteToggle } from '../hooks/useFavoriteToggle';
 export function FavoriteButton({ 
   listingId, 
   initialIsFavorited = false, 
-  size = 'md' 
+  size = 'md',
+  className = ''
 }) {
   const { isFavorited, hasChecked, isLoading, toggleFavorite } = useFavoriteToggle({
     listingId,
@@ -38,7 +39,7 @@ export function FavoriteButton({
     <button
       onClick={handleToggle}
       disabled={isLoading}
-      className={`${sizeClasses[size]} rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50`}
+      className={`${sizeClasses[size]} rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50 ${className}`}
       aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
     >
       <Heart 
