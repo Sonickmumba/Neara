@@ -1018,7 +1018,7 @@ exports.createListing = async (req, res, next) => {
       image_url,
     } = req.body;
 
-    // If location is not provided, use the user's location
+    // If location is not provided, use the user's (the listing owner) location
     let finalLocationLat = location_lat;
     let finalLocationLng = location_lng;
 
