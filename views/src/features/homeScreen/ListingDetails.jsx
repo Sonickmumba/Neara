@@ -336,7 +336,7 @@ export function ListingDetails() {
           <div className="mb-3 text-gray-600 font-medium">Posted by</div>
           <button
             onClick={() =>
-              navigate('user-profile', {
+              navigate('/homeFeed/user-profile', {
                 state: { selectedUserId: listing.user_id },
               })
             }
