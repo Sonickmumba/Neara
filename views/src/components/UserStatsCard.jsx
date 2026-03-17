@@ -1,33 +1,42 @@
 import { Star, Package, List, Heart } from 'lucide-react';
 
 export function UserStatsCard({ stats, layout = 'grid' }) {
+  const rating = Number(stats?.rating);
+  const totalRatings = Number(stats?.totalRatings);
+  const completedTrades = Number(stats?.completedTrades || 0);
+  const activeListings = Number(stats?.activeListings || 0);
+  const savedFavorites =
+    stats?.savedFavorites === undefined
+      ? undefined
+      : Number(stats.savedFavorites);
+
   const statItems = [
     {
       icon: <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />,
-      value: stats.rating.toFixed(1),
-      label: `Rating (${stats.totalRatings})`,
-      color: 'text-yellow-600'
+      value: Number.isFinite(rating) ? rating.toFixed(1) : '0.0',
+      label: `Rating (${Number.isFinite(totalRatings) ? totalRatings : 0})`,
+      color: 'text-yellow-600',
     },
     {
       icon: <Package className="w-5 h-5 text-green-500" />,
-      value: stats.completedTrades,
+      value: completedTrades,
       label: 'Trades',
-      color: 'text-green-600'
+      color: 'text-green-600',
     },
     {
       icon: <List className="w-5 h-5 text-blue-500" />,
-      value: stats.activeListings,
+      value: activeListings,
       label: 'Active',
-      color: 'text-blue-600'
-    }
+      color: 'text-blue-600',
+    },
   ];
 
-  if (stats.savedFavorites !== undefined) {
+  if (savedFavorites !== undefined) {
     statItems.push({
       icon: <Heart className="w-5 h-5 text-red-500 fill-red-500" />,
-      value: stats.savedFavorites,
+      value: Number.isFinite(savedFavorites) ? savedFavorites : 0,
       label: 'Saved',
-      color: 'text-red-600'
+      color: 'text-red-600',
     });
   }
 
