@@ -173,20 +173,28 @@ const validateListingId = [
  * REVIEW VALIDATIONS
  */
 const validateCreateReview = [
-  body('listing_id')
+  body('tradeId')
     .notEmpty()
-    .withMessage('Listing ID is required')
+    .withMessage('Trade ID is required')
     .isUUID()
-    .withMessage('Invalid listing ID'),
+    .withMessage('Invalid trade ID'),
+  body('revieweeId')
+    .notEmpty()
+    .withMessage('Reviewee ID is required')
+    .isUUID()
+    .withMessage('Invalid reviewee ID'),
   body('rating')
     .isInt({ min: 1, max: 5 })
     .withMessage('Rating must be between 1 and 5'),
-  body('comment')
+  body('content')
+    .optional({ nullable: true })
     .trim()
-    .notEmpty()
-    .withMessage('Review comment is required')
-    .isLength({ min: 5, max: 1000 })
-    .withMessage('Comment must be between 5 and 1000 characters'),
+    .isLength({ max: 1000 })
+    .withMessage('Review content must be at most 1000 characters'),
+  body('tags')
+    .optional({ nullable: true })
+    .isArray({ max: 10 })
+    .withMessage('Tags must be an array with up to 10 items'),
   handleValidationErrors,
 ];
 
@@ -300,28 +308,47 @@ const validateSendMessage = [
  * TRADE VALIDATIONS
  */
 const validateCreateTrade = [
-  body('offered_listing_id')
+  body('listingId')
     .notEmpty()
-    .withMessage('Offered listing ID is required')
+    .withMessage('Listing ID is required')
     .isUUID()
     .withMessage('Invalid listing ID'),
-  body('requested_listing_id')
+  body('ownerId')
     .notEmpty()
-    .withMessage('Requested listing ID is required')
+    .withMessage('Owner ID is required')
     .isUUID()
-    .withMessage('Invalid listing ID'),
-  body('message')
-    .optional()
-    .trim()
-    .isLength({ max: 1000 })
-    .withMessage('Message too long'),
+    .withMessage('Invalid owner ID'),
+  body('requesterOffer')
+    .notEmpty()
+    .withMessage('Offer details are required')
+    .isLength({ max: 2000 })
+    .withMessage('Offer details too long'),
+  body('tradeDate')
+    .notEmpty()
+    .withMessage('Trade date is required')
+    .isISO8601()
+    .withMessage('Invalid trade date'),
+  body('tradeTime')
+    .notEmpty()
+    .withMessage('Trade time is required')
+    .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+    .withMessage('Invalid trade time format'),
+  body('location')
+    .notEmpty()
+    .withMessage('Location is required')
+    .isLength({ max: 255 })
+    .withMessage('Location is too long'),
+  body('notes')
+    .optional({ nullable: true })
+    .isLength({ max: 2000 })
+    .withMessage('Notes too long'),
   handleValidationErrors,
 ];
 
 const validateUpdateTradeStatus = [
   param('id').isUUID().withMessage('Invalid trade ID'),
   body('status')
-    .isIn(['pending', 'accepted', 'rejected', 'completed', 'cancelled'])
+    .isIn(['pending', 'accepted', 'completed', 'cancelled'])
     .withMessage('Invalid status'),
   handleValidationErrors,
 ];
