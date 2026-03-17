@@ -23,7 +23,7 @@ const REVIEW_TAGS = [
   { id: 'great_communication', label: 'Great Communication', icon: '💬' },
   { id: 'high_quality', label: 'High Quality', icon: '⭐' },
   { id: 'flexible', label: 'Flexible', icon: '🤝' },
-  { id: 'helpful', label: 'Helpful', icon: '👍' }
+  { id: 'helpful', label: 'Helpful', icon: '👍' },
 ];
 
 const RATING_LABELS = {
@@ -31,7 +31,7 @@ const RATING_LABELS = {
   2: 'Fair',
   3: 'Good',
   4: 'Very Good',
-  5: 'Excellent'
+  5: 'Excellent',
 };
 
 export function ReviewRating() {
@@ -78,7 +78,9 @@ export function ReviewRating() {
 
   const revieweeId = useMemo(() => {
     if (!trade || !currentUser?.id) return null;
-    return trade.owner_id === currentUser.id ? trade.requester_id : trade.owner_id;
+    return trade.owner_id === currentUser.id
+      ? trade.requester_id
+      : trade.owner_id;
   }, [trade, currentUser?.id]);
 
   const partner = useMemo(() => {
@@ -113,7 +115,8 @@ export function ReviewRating() {
 
   const tradePreview = useMemo(
     () => ({
-      title: trade?.listing_title || location.state?.listingTitle || 'Trade Listing',
+      title:
+        trade?.listing_title || location.state?.listingTitle || 'Trade Listing',
       date: trade?.trade_date || location.state?.tradeDate || null,
       icon: '🎁',
     }),
@@ -122,7 +125,7 @@ export function ReviewRating() {
 
   const toggleTag = (tagId) => {
     if (selectedTags.includes(tagId)) {
-      setSelectedTags(selectedTags.filter(t => t !== tagId));
+      setSelectedTags(selectedTags.filter((t) => t !== tagId));
     } else {
       setSelectedTags([...selectedTags, tagId]);
     }
@@ -134,8 +137,8 @@ export function ReviewRating() {
       toast.error('Maximum 3 photos allowed');
       return;
     }
-    
-    const imageUrls = files.map(file => URL.createObjectURL(file));
+
+    const imageUrls = files.map((file) => URL.createObjectURL(file));
     setPhotos([...photos, ...imageUrls]);
   };
 
@@ -145,7 +148,7 @@ export function ReviewRating() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (rating === 0) {
       toast.error('Please select a star rating');
       return;
@@ -184,22 +187,37 @@ export function ReviewRating() {
   };
 
   const handleSkip = () => {
-    if (confirm('Are you sure you want to skip leaving a review? This helps build trust in our community.')) {
+    if (
+      confirm(
+        'Are you sure you want to skip leaving a review? This helps build trust in our community.'
+      )
+    ) {
       navigate(`/homeFeed/trade-management/${tradeId}`);
     }
   };
 
   const applyTemplate = (templateRating) => {
     setRating(templateRating);
-    
+
     if (templateRating === 5) {
-      setReviewText(`Had a wonderful experience trading with ${partner.name}! Everything went smoothly and they were very professional. Highly recommend!`);
-      setSelectedTags(['reliable', 'friendly', 'punctual', 'great_communication']);
+      setReviewText(
+        `Had a wonderful experience trading with ${partner.name}! Everything went smoothly and they were very professional. Highly recommend!`
+      );
+      setSelectedTags([
+        'reliable',
+        'friendly',
+        'punctual',
+        'great_communication',
+      ]);
     } else if (templateRating === 4) {
-      setReviewText(`Great experience overall with ${partner.name}. Would trade again!`);
+      setReviewText(
+        `Great experience overall with ${partner.name}. Would trade again!`
+      );
       setSelectedTags(['reliable', 'friendly']);
     } else if (templateRating === 3) {
-      setReviewText(`Trade went okay. ${partner.name} was decent to work with.`);
+      setReviewText(
+        `Trade went okay. ${partner.name} was decent to work with.`
+      );
       setSelectedTags(['reliable']);
     }
   };
@@ -246,14 +264,18 @@ export function ReviewRating() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate(`/homeFeed/trade-management/${tradeId}`)}
+                onClick={() =>
+                  navigate(`/homeFeed/trade-management/${tradeId}`)
+                }
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
                 <h2>Leave a Review</h2>
-                <p className="text-sm text-gray-500">Help build community trust</p>
+                <p className="text-sm text-gray-500">
+                  Help build community trust
+                </p>
               </div>
             </div>
             <button
@@ -268,7 +290,6 @@ export function ReviewRating() {
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          
           {/* Partner Card */}
           <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6">
             <div className="flex items-center gap-4 mb-4">
@@ -277,14 +298,18 @@ export function ReviewRating() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-gray-900">{partner.name}</h3>
-                  <ReputationBadge 
+                  <h3 className="font-semibold text-gray-900">
+                    {partner.name}
+                  </h3>
+                  <ReputationBadge
                     rating={partner.rating}
                     isVerified={partner.isVerified}
                     size="small"
                   />
                 </div>
-                <p className="text-sm text-gray-600">{partner.totalRatings} reviews</p>
+                <p className="text-sm text-gray-600">
+                  {partner.totalRatings} reviews
+                </p>
               </div>
             </div>
 
@@ -293,14 +318,19 @@ export function ReviewRating() {
               <div className="flex items-center gap-3">
                 <div className="text-3xl">{tradePreview.icon}</div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">{tradePreview.title}</div>
+                  <div className="font-medium text-gray-900">
+                    {tradePreview.title}
+                  </div>
                   <div className="text-sm text-gray-600">
                     {tradePreview.date
-                      ? new Date(tradePreview.date).toLocaleDateString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })
+                      ? new Date(tradePreview.date).toLocaleDateString(
+                          'en-US',
+                          {
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric',
+                          }
+                        )
                       : 'Date unavailable'}
                   </div>
                 </div>
@@ -316,7 +346,7 @@ export function ReviewRating() {
             <h3 className="font-semibold text-gray-900 mb-4">
               How was your experience?
             </h3>
-            
+
             <div className="flex flex-col items-center py-4">
               <div className="flex gap-2 mb-4">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -338,7 +368,7 @@ export function ReviewRating() {
                   </button>
                 ))}
               </div>
-              
+
               {rating > 0 && (
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-900 mb-1">
@@ -387,7 +417,7 @@ export function ReviewRating() {
             <h3 className="font-semibold text-gray-900 mb-4">
               What stood out? (Optional)
             </h3>
-            
+
             <div className="flex flex-wrap gap-2">
               {REVIEW_TAGS.map((tag) => (
                 <button
@@ -412,7 +442,7 @@ export function ReviewRating() {
             <h3 className="font-semibold text-gray-900 mb-4">
               Share more details (Optional but encouraged)
             </h3>
-            
+
             <textarea
               value={reviewText}
               onChange={(e) => setReviewText(e.target.value)}
@@ -436,14 +466,14 @@ export function ReviewRating() {
             <h3 className="font-semibold text-gray-900 mb-4">
               Add Photos (Optional)
             </h3>
-            
+
             <div className="space-y-3">
               {photos.length > 0 && (
                 <div className="grid grid-cols-3 gap-3">
                   {photos.map((photo, index) => (
                     <div key={index} className="relative aspect-square">
-                      <img 
-                        src={photo} 
+                      <img
+                        src={photo}
                         alt={`Review photo ${index + 1}`}
                         className="w-full h-full object-cover rounded-lg"
                       />
@@ -458,7 +488,7 @@ export function ReviewRating() {
                   ))}
                 </div>
               )}
-              
+
               {photos.length < 3 && (
                 <label className="block">
                   <input
@@ -497,7 +527,8 @@ export function ReviewRating() {
                   Make this review public
                 </div>
                 <p className="text-sm text-gray-600">
-                  Public reviews help build trust in the community. Your review will appear on {partner.name}'s profile.
+                  Public reviews help build trust in the community. Your review
+                  will appear on {partner.name}'s profile.
                 </p>
               </label>
             </div>
@@ -512,7 +543,8 @@ export function ReviewRating() {
                   Reviews help our community thrive
                 </p>
                 <p className="text-sm text-blue-700">
-                  Honest feedback helps everyone make better trades and builds trust in LocalLoop.
+                  Honest feedback helps everyone make better trades and builds
+                  trust in LocalLoop.
                 </p>
               </div>
             </div>
@@ -537,7 +569,7 @@ export function ReviewRating() {
                 </>
               )}
             </button>
-            
+
             <p className="text-center text-sm text-gray-500">
               You can edit your review within 24 hours
             </p>
