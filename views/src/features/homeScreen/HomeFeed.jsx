@@ -68,8 +68,8 @@ export function HomeFeed() {
         onNotificationClick={(notification) => {
           setShowNotifications(false);
           if (notification.type === 'message') {
-            navigate('chat-conversation', {
-              selectedChatId: notification.referenceId,
+            navigate(`chat-conversation/${notification.referenceId}`, {
+              state: { fromNotification: true },
             });
           } else if (notification.type === 'trade') {
             navigate('trade-management', {
