@@ -20,6 +20,8 @@ import { Favorites } from './features/homeScreen/Favorites';
 import { ListingDetails } from './features/homeScreen/ListingDetails';
 import { CreateListing } from './components/CreateListing';
 import { HomeSearchResult } from './features/homeScreen/components/HomeSearchResult';
+import { ChatConversationScreen } from './features/chat/ChatConversationScreen';
+import { MessageListScreen } from './features/chat/MessageListScreen';
 
 import { RequireAuth } from './components/RequireAuth';
 import { setupAuthInterceptor } from './services/api';
@@ -60,7 +62,19 @@ function App() {
             />
             <Route
               path="chat-list"
-              element={<div className="p-6">Chat list coming soon!</div>}
+              element={
+                <RequireAuth>
+                  <MessageListScreen />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="chat-conversation/:conversationId"
+              element={
+                <RequireAuth>
+                  <ChatConversationScreen />
+                </RequireAuth>
+              }
             />
             <Route
               path="user-profile"
