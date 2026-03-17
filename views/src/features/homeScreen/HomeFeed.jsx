@@ -67,16 +67,21 @@ export function HomeFeed() {
         onClose={() => setShowNotifications(false)}
         onNotificationClick={(notification) => {
           setShowNotifications(false);
+          const refId = notification.referenceId || notification.reference_id;
+
           if (notification.type === 'message') {
-            navigate(`chat-conversation/${notification.referenceId}`, {
+            if (!refId) return;
+            navigate(`chat-conversation/${refId}`, {
               state: { fromNotification: true },
             });
           } else if (notification.type === 'trade') {
+            if (!refId) return;
             navigate('trade-management', {
-              selectedTradeId: notification.referenceId,
+              selectedTradeId: refId,
             });
           } else if (notification.type === 'listing') {
-            navigate(`listing-details/${notification.referenceId}`);
+            if (!refId) return;
+            navigate(`listing-details/${refId}`);
           }
         }}
       />
