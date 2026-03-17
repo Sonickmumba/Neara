@@ -33,7 +33,6 @@ export const verifyEmail = createAsyncThunk(
         email,
         code,
       });
-      console.log('Verify email response:', res.data);
       return res.data;
     } catch (err) {
       console.error('Verify email error:', err);
@@ -56,8 +55,6 @@ export const registerUser = createAsyncThunk(
       const state = getState();
       const interests = state.interests?.selectedCategoryIds || [];
       const coords = state.locationPermission?.coords || null;
-
-      console.log('Registration payload:', { formData, interests, coords });
 
       // 🧩 combine form data with interests (and location if needed)
       const payload = {
