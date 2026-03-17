@@ -187,7 +187,7 @@ const validateCreateReview = [
     .isInt({ min: 1, max: 5 })
     .withMessage('Rating must be between 1 and 5'),
   body('content')
-    .optional({ nullable: true })
+    .customSanitizer((value) => (value == null ? '' : value))
     .trim()
     .isLength({ max: 1000 })
     .withMessage('Review content must be at most 1000 characters'),
