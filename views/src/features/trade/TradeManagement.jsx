@@ -126,7 +126,9 @@ export function TradeManagementScreen() {
       toast.success(`Trade ${nextStatus}`);
     } catch (err) {
       console.error('Failed to update trade status:', err);
-      toast.error(err.response?.data?.message || 'Failed to update trade status');
+      toast.error(
+        err.response?.data?.message || 'Failed to update trade status'
+      );
     } finally {
       setIsMutating(false);
     }
@@ -179,7 +181,9 @@ export function TradeManagementScreen() {
               <button
                 onClick={() =>
                   location.state?.fromConversationId
-                    ? navigate(`/homeFeed/chat-conversation/${location.state.fromConversationId}`)
+                    ? navigate(
+                        `/homeFeed/chat-conversation/${location.state.fromConversationId}`
+                      )
                     : navigate('/homeFeed/chat-list')
                 }
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -188,10 +192,14 @@ export function TradeManagementScreen() {
               </button>
               <div>
                 <h2>Trade Details</h2>
-                <p className="text-sm text-gray-500">ID: #{trade.id?.slice(0, 8)}</p>
+                <p className="text-sm text-gray-500">
+                  ID: #{trade.id?.slice(0, 8)}
+                </p>
               </div>
             </div>
-            <span className={`px-3 py-1 text-xs rounded-full font-medium ${statusMeta.classes}`}>
+            <span
+              className={`px-3 py-1 text-xs rounded-full font-medium ${statusMeta.classes}`}
+            >
               {statusMeta.label}
             </span>
           </div>
@@ -235,9 +243,15 @@ export function TradeManagementScreen() {
                 🎁
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-green-700 font-medium mb-1">They&apos;re offering</div>
-                <div className="font-medium text-gray-900">{trade.listing_title}</div>
-                <div className="text-xs text-gray-500 mt-1">Type: {trade.listing_type}</div>
+                <div className="text-sm text-green-700 font-medium mb-1">
+                  They&apos;re offering
+                </div>
+                <div className="font-medium text-gray-900">
+                  {trade.listing_title}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Type: {trade.listing_type}
+                </div>
               </div>
             </div>
 
@@ -252,8 +266,12 @@ export function TradeManagementScreen() {
                 💬
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-blue-700 font-medium mb-1">You&apos;re offering</div>
-                <div className="font-medium text-gray-900">{trade.requester_offer}</div>
+                <div className="text-sm text-blue-700 font-medium mb-1">
+                  You&apos;re offering
+                </div>
+                <div className="font-medium text-gray-900">
+                  {trade.requester_offer}
+                </div>
               </div>
             </div>
           </div>
@@ -267,7 +285,9 @@ export function TradeManagementScreen() {
               <Calendar className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
               <div>
                 <div className="text-sm text-gray-600">Date</div>
-                <div className="font-medium text-gray-900">{formatDate(dateTime)}</div>
+                <div className="font-medium text-gray-900">
+                  {formatDate(dateTime)}
+                </div>
               </div>
             </div>
 
@@ -275,7 +295,9 @@ export function TradeManagementScreen() {
               <Clock className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
               <div>
                 <div className="text-sm text-gray-600">Time</div>
-                <div className="font-medium text-gray-900">{formatTime(dateTime)}</div>
+                <div className="font-medium text-gray-900">
+                  {formatTime(dateTime)}
+                </div>
               </div>
             </div>
 
@@ -283,7 +305,9 @@ export function TradeManagementScreen() {
               <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
               <div>
                 <div className="text-sm text-gray-600">Location</div>
-                <div className="font-medium text-gray-900">{trade.location || '—'}</div>
+                <div className="font-medium text-gray-900">
+                  {trade.location || '—'}
+                </div>
               </div>
             </div>
 
@@ -291,7 +315,9 @@ export function TradeManagementScreen() {
               <div className="flex items-start gap-3 pt-3 border-t border-gray-200">
                 <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
-                  <div className="text-sm text-gray-600 mb-1">Additional Notes</div>
+                  <div className="text-sm text-gray-600 mb-1">
+                    Additional Notes
+                  </div>
                   <div className="text-gray-900">{trade.notes}</div>
                 </div>
               </div>
@@ -307,7 +333,11 @@ export function TradeManagementScreen() {
                 disabled={isMutating}
                 className="w-full bg-green-600 text-white py-4 rounded-full font-medium hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {isMutating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                {isMutating ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Check className="w-5 h-5" />
+                )}
                 Accept Trade
               </button>
               <button
@@ -327,7 +357,11 @@ export function TradeManagementScreen() {
               disabled={isMutating}
               className="w-full bg-white border-2 border-gray-300 text-gray-700 py-4 rounded-full font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {isMutating ? <Loader2 className="w-5 h-5 animate-spin" /> : <X className="w-5 h-5" />}
+              {isMutating ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <X className="w-5 h-5" />
+              )}
               Cancel Proposal
             </button>
           )}
@@ -339,7 +373,11 @@ export function TradeManagementScreen() {
                 disabled={isMutating}
                 className="w-full bg-blue-600 text-white py-4 rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {isMutating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                {isMutating ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Check className="w-5 h-5" />
+                )}
                 Mark as Complete
               </button>
               <button
