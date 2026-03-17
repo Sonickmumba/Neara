@@ -33,7 +33,9 @@ export function BottomNav({ navigate }) {
         </button>
 
         <button
-          onClick={() => navigate('user-profile', { selectedUserId: 'me' })}
+          onClick={() =>
+            navigate('user-profile', { state: { selectedUserId: 'me' } })
+          }
           className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
         >
           <User className="w-6 h-6" />
