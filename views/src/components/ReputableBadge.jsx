@@ -7,6 +7,13 @@ export function ReputationBadge({
   size = 'md',
   showVerified = true 
 }) {
+  const normalizedSize = size === 'small' ? 'sm' : size;
+  const numericRating = Number(rating);
+  const hasValidRating = Number.isFinite(numericRating) && numericRating > 0;
+  const numericTotalRatings = Number(totalRatings);
+  const hasTotalRatings =
+    Number.isFinite(numericTotalRatings) && numericTotalRatings > 0;
+
   const sizeClasses = {
     sm: 'text-xs',
     md: 'text-sm',
@@ -21,15 +28,15 @@ export function ReputationBadge({
   
   return (
     <div className="flex items-center gap-2">
-      {rating > 0 && (
+      {hasValidRating && (
         <div className="flex items-center gap-1">
-          <Star className={`${iconSizes[size]} text-yellow-500 fill-yellow-500`} />
-          <span className={`${sizeClasses[size]} font-medium`}>
-            {rating.toFixed(1)}
+          <Star className={`${iconSizes[normalizedSize] || iconSizes.md} text-yellow-500 fill-yellow-500`} />
+          <span className={`${sizeClasses[normalizedSize] || sizeClasses.md} font-medium`}>
+            {numericRating.toFixed(1)}
           </span>
-          {totalRatings && totalRatings > 0 && (
-            <span className={`${sizeClasses[size]} text-gray-500`}>
-              ({totalRatings})
+          {hasTotalRatings && (
+            <span className={`${sizeClasses[normalizedSize] || sizeClasses.md} text-gray-500`}>
+              ({numericTotalRatings})
             </span>
           )}
         </div>
@@ -37,8 +44,8 @@ export function ReputationBadge({
       
       {showVerified && isVerified && (
         <div className="flex items-center gap-1 text-blue-600">
-          <CheckCircle className={`${iconSizes[size]}`} />
-          <span className={`${sizeClasses[size]}`}>Verified</span>
+          <CheckCircle className={`${iconSizes[normalizedSize] || iconSizes.md}`} />
+          <span className={`${sizeClasses[normalizedSize] || sizeClasses.md}`}>Verified</span>
         </div>
       )}
     </div>
