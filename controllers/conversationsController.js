@@ -5,6 +5,24 @@ const { generateId, timeAgo } = require('../utils/helpers');
 exports.getUserConversations = async (req, res, next) => {
   try {
     const userId = req.user.id;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const before = req.query.before;
+    const beforeId = req.query.beforeId;
+
+    const params = [userId];
+    let cursorWhere = '';
+
+    if (before && beforeId) {
+      params.push(before, beforeId);
+      cursorWhere = `
+        AND (
+          COALESCE(c.last_message_at, c.created_at), c.id
+        ) < ($2::timestamp, $3)
+      `;
+    }
+
+    params.push(limit + 1);
+    const limitParam = `$${params.length}`;
 
     const result = await pool.query(
       `
@@ -16,6 +34,21 @@ exports.getUserConversations = async (req, res, next) => {
           WHEN c.participant1_id = $1 THEN u2.name
           ELSE u1.name
         END AS partner_name,
+
+        CASE
+          WHEN c.participant1_id = $1 THEN u2.rating
+          ELSE u1.rating
+        END AS partner_rating,
+
+        CASE
+          WHEN c.participant1_id = $1 THEN u2.email_verified
+          ELSE u1.email_verified
+        END AS partner_is_verified,
+
+        CASE
+          WHEN c.participant1_id = $1 THEN u2.total_ratings
+          ELSE u1.total_ratings
+        END AS partner_total_ratings,
 
         CASE 
           WHEN c.participant1_id = $1 THEN c.participant2_id
@@ -44,21 +77,37 @@ exports.getUserConversations = async (req, res, next) => {
       JOIN users u2 ON c.participant2_id = u2.id
       WHERE c.participant1_id = $1
          OR c.participant2_id = $1
-      ORDER BY c.last_message_at DESC
+      ${cursorWhere}
+      ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
+      LIMIT ${limitParam}
       `,
-      [userId]
+      params
     );
 
-    const conversations = result.rows;
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const conversations = rows;
 
     // add timeAgo key to each conversation
     conversations.forEach((conv) => {
-      conv.timeAgo = conv.last_message_at ? timeAgo(conv.last_message_at) : '';
+      conv.timeAgo = timeAgo(conv.last_message_at || conv.created_at);
+      conv.unread_count = Number(conv.unread_count || 0);
     });
+
+    const nextCursor = conversations.length
+      ? {
+          before:
+            conversations[conversations.length - 1].last_message_at ||
+            conversations[conversations.length - 1].created_at,
+          beforeId: conversations[conversations.length - 1].id,
+        }
+      : null;
 
     res.json({
       success: true,
       count: conversations.length,
+      hasMore,
+      nextCursor,
       data: conversations,
     });
   } catch (error) {
@@ -69,8 +118,16 @@ exports.getUserConversations = async (req, res, next) => {
 // get or create conversation
 exports.getOrCreateConversation = async (req, res, next) => {
   try {
-    const { listingId, participantId } = req.body;
+    const listingId = req.body.listingId || req.body.listing_id;
+    const participantId = req.body.participantId || req.body.participant_id;
     const userId = req.user.id;
+
+    if (!listingId || !participantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'listingId and participantId are required',
+      });
+    }
 
     if (userId === participantId) {
       return res.status(400).json({
@@ -102,15 +159,15 @@ exports.getOrCreateConversation = async (req, res, next) => {
       [listingId]
     );
 
-    const newConversion = await pool.query(
+    const newConversation = await pool.query(
       `SELECT * FROM conversations WHERE id = $1`,
-      [conversionId]
+      [conversationId]
     );
 
     res.status(201).json({
       success: true,
       message: 'Conversation created successfully',
-      data: newConversion.rows[0],
+      data: newConversation.rows[0],
     });
   } catch (error) {
     next(error);
@@ -120,14 +177,15 @@ exports.getOrCreateConversation = async (req, res, next) => {
 // Get messages in conversation
 exports.getMessages = async (req, res, next) => {
   try {
-    const { chatId } = req.params;
-    console.log(chatId)
+    const { conversationId } = req.params;
     const userId = req.user.id;
+    const before = req.query.before;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 100);
 
     // check if user is part of the conversation
     const conversationResult = await pool.query(
       `SELECT * FROM conversations WHERE id = $1 AND (participant1_id = $2 OR participant2_id = $3)`,
-      [chatId, userId, userId]
+      [conversationId, userId, userId]
     );
     const conversation = conversationResult.rows;
 
@@ -138,24 +196,55 @@ exports.getMessages = async (req, res, next) => {
       });
     }
 
-    // retrieve the message
-    const messagesResult = await pool.query(
-      `SELECT m.*, u.name as sender_name FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.conversation_id = $1 ORDER BY m.created_at ASC`,
-      [chatId]
-    );
+    let messagesResult;
 
-    const messages = messagesResult.rows;
+    if (before) {
+      messagesResult = await pool.query(
+        `
+        SELECT m.*, u.name as sender_name
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = $1
+          AND m.created_at < $2::timestamp
+        ORDER BY m.created_at DESC
+        LIMIT $3
+        `,
+        [conversationId, before, limit + 1]
+      );
+    } else {
+      messagesResult = await pool.query(
+        `
+        SELECT m.*, u.name as sender_name
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = $1
+        ORDER BY m.created_at DESC
+        LIMIT $2
+        `,
+        [conversationId, limit + 1]
+      );
+    }
+
+    const hasMore = messagesResult.rows.length > limit;
+    const slice = hasMore
+      ? messagesResult.rows.slice(0, limit)
+      : messagesResult.rows;
+    const messages = [...slice].reverse();
 
     // Mark messages as read
-    await pool.query(
-      `UPDATE messages SET is_read = true WHERE conversation_id = $1 AND sender_id <> $2`,
-      [chatId, userId]
-    );
+    if (!before) {
+      await pool.query(
+        `UPDATE messages SET is_read = true WHERE conversation_id = $1 AND sender_id <> $2`,
+        [conversationId, userId]
+      );
+    }
 
     res.json({
       success: true,
-      count: messagesResult.rows.length,
-      data: messagesResult.rows,
+      count: messages.length,
+      hasMore,
+      nextCursor: messages.length ? messages[0].created_at : null,
+      data: messages,
     });
   } catch (error) {
     next(error);
@@ -165,9 +254,17 @@ exports.getMessages = async (req, res, next) => {
 // send message
 exports.sendMessage = async (req, res, next) => {
   try {
-    const { conversationId, content } = req.body;
+    const { conversationId } = req.params;
+    const content = req.body.content || req.body.message;
     const userId = req.user.id;
     const io = req.app.get('io');
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message content is required',
+      });
+    }
 
     // check if user is part of the conversation
     const conversationResult = await pool.query(
@@ -185,7 +282,7 @@ exports.sendMessage = async (req, res, next) => {
     const messageId = generateId();
     await pool.query(
       `INSERT INTO messages (id, conversation_id, sender_id, content ) VALUES ($1, $2, $3, $4)`,
-      [messageId, conversationId, userId, content]
+      [messageId, conversationId, userId, String(content).trim()]
     );
 
     // Update conversation's last_message_at
@@ -239,7 +336,9 @@ exports.sendMessage = async (req, res, next) => {
     const newMessage = newMessageResult.rows[0];
 
     // Broadcast via Socket.IO to the room
-    io.to(conversationId).emit('new_message', newMessage);
+    if (io) {
+      io.to(conversationId).emit('new_message', newMessage);
+    }
 
     res.status(201).json({
       success: true,
@@ -250,7 +349,6 @@ exports.sendMessage = async (req, res, next) => {
     next(error);
   }
 };
-
 
 // verify if this is needed
 
