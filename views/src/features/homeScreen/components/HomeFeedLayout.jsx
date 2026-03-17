@@ -10,7 +10,10 @@ export function HomeFeedLayout() {
   const shouldShowBottomNav =
     !location.pathname.includes('/listing-details/') &&
     !location.pathname.includes('/create-listing') &&
-    !location.pathname.includes('/chat-conversation/');
+    !location.pathname.includes('/chat-conversation/') &&
+    !location.pathname.includes('/trade-negotiation') &&
+    !location.pathname.includes('/trade-management/') &&
+    !location.pathname.includes('/review-rating/');
 
   // placeholder for any shared layout logic (e.g. conditionally show
   // a notifications drawer based on route or screen size)
