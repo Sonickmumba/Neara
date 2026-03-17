@@ -20,18 +20,31 @@ function initialsFromName(name) {
 export function MessageListScreen() {
   const navigate = useNavigate();
   const listRef = useRef(null);
+  const requestSeqRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter, setFilter] = useState('all'); // all | active-trades | unread
   const [conversations, setConversations] = useState([]);
+  const [counts, setCounts] = useState({ all: 0, unread: 0, activeTrades: 0 });
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const fetchConversations = useCallback(
     async ({ append = false, cursor = null } = {}) => {
+      const requestId = ++requestSeqRef.current;
+
       try {
         if (!append) {
           setStatus('loading');
@@ -42,12 +55,23 @@ export function MessageListScreen() {
 
         const params = {
           limit: PAGE_SIZE,
+          filter,
+          ...(debouncedSearch ? { search: debouncedSearch } : {}),
           ...(cursor?.before ? { before: cursor.before } : {}),
           ...(cursor?.beforeId ? { beforeId: cursor.beforeId } : {}),
         };
 
         const res = await apiClient.get('/api/conversations', { params });
+        if (requestId !== requestSeqRef.current) return;
         const items = Array.isArray(res.data?.data) ? res.data.data : [];
+
+        if (res.data?.counts) {
+          setCounts({
+            all: Number(res.data.counts.all || 0),
+            unread: Number(res.data.counts.unread || 0),
+            activeTrades: Number(res.data.counts.activeTrades || 0),
+          });
+        }
 
         setConversations((prev) => {
           const merged = append ? [...prev, ...items] : items;
@@ -63,17 +87,23 @@ export function MessageListScreen() {
         setNextCursor(res.data?.nextCursor || null);
         setStatus('succeeded');
       } catch (err) {
+        if (requestId !== requestSeqRef.current) return;
         console.error('Failed to load conversations:', err);
         setError(err.response?.data?.message || 'Failed to load conversations');
         setStatus('failed');
       } finally {
-        setIsLoadingMore(false);
+        if (requestId === requestSeqRef.current) {
+          setIsLoadingMore(false);
+        }
       }
     },
-    []
+    [debouncedSearch, filter]
   );
 
   useEffect(() => {
+    setConversations([]);
+    setHasMore(true);
+    setNextCursor(null);
     fetchConversations();
   }, [fetchConversations]);
 
@@ -88,38 +118,17 @@ export function MessageListScreen() {
   };
 
   const filteredChats = useMemo(() => {
-    return conversations
-      .filter((chat) => {
-        const matchesSearch =
-          chat.partner_name
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          chat.listing_title
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          chat.last_message?.toLowerCase().includes(searchQuery.toLowerCase());
+    return conversations.sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      return 0;
+    });
+  }, [conversations]);
 
-        if (filter === 'active-trades')
-          return matchesSearch && !!chat.has_active_trade;
-        if (filter === 'unread')
-          return matchesSearch && Number(chat.unread_count) > 0;
-
-        return matchesSearch;
-      })
-      .sort((a, b) => {
-        if (a.is_pinned && !b.is_pinned) return -1;
-        if (!a.is_pinned && b.is_pinned) return 1;
-        return 0;
-      });
-  }, [conversations, searchQuery, filter]);
-
-  const unreadCount = useMemo(
-    () => conversations.filter((c) => Number(c.unread_count) > 0).length,
-    [conversations]
-  );
+  const unreadCount = useMemo(() => counts.unread, [counts.unread]);
   const activeTradesCount = useMemo(
-    () => conversations.filter((c) => !!c.has_active_trade).length,
-    [conversations]
+    () => counts.activeTrades,
+    [counts.activeTrades]
   );
 
   return (
@@ -163,7 +172,7 @@ export function MessageListScreen() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              All ({conversations.length})
+              All ({counts.all})
             </button>
             <button
               onClick={() => setFilter('active-trades')}
