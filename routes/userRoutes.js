@@ -14,6 +14,9 @@ router.get('/:userId', usersController.getUserProfile);
 // Update user profile
 router.patch('/profile', validateUpdateUser, usersController.updateUserProfile);
 
+// Delete own account
+router.delete('/profile', usersController.deleteOwnAccount);
+
 // Get user stats
 router.get('/:userId/stats', usersController.getUserStats);
 

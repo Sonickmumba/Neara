@@ -53,8 +53,15 @@ exports.getUserProfile = async (req, res, next) => {
 
 exports.updateUserProfile = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
-    const { name, bio, neighborhood, profile_image_url } = req.body;
+    const userId = req.user?.id || req.user?.userId;
+    const { name, phone, bio, neighborhood, profile_image_url } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized',
+      });
+    }
 
     const updates = [];
     const values = [];
@@ -63,6 +70,10 @@ exports.updateUserProfile = async (req, res, next) => {
     if (name) {
       updates.push(`name = $${idx++}`);
       values.push(name);
+    }
+    if (phone !== undefined) {
+      updates.push(`phone = $${idx++}`);
+      values.push(phone || null);
     }
     if (bio !== undefined) {
       updates.push(`bio = $${idx++}`);
@@ -97,7 +108,7 @@ exports.updateUserProfile = async (req, res, next) => {
 
     const { rows } = await pool.query(
       `
-      SELECT id, name, email, bio, neighborhood, profile_image_url
+      SELECT id, name, email, phone, bio, neighborhood, profile_image_url
       FROM users
       WHERE id = $1
       `,
@@ -108,6 +119,41 @@ exports.updateUserProfile = async (req, res, next) => {
       success: true,
       message: 'Profile updated successfully',
       data: rows[0],
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteOwnAccount = async (req, res, next) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized',
+      });
+    }
+
+    const { rowCount } = await pool.query('DELETE FROM users WHERE id = $1', [
+      userId,
+    ]);
+
+    if (!rowCount) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (req.logout) {
+      req.logout(() => {});
+    }
+
+    res.json({
+      success: true,
+      message: 'Account deleted successfully',
     });
   } catch (error) {
     next(error);

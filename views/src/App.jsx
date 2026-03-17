@@ -26,6 +26,7 @@ import { TradeNegotiation } from './features/trade/TradeNegotiation';
 import { TradeManagementScreen } from './features/trade/TradeManagement';
 import { ReviewRating } from './features/trade/ReviewRating';
 import { UserProfileScreen } from './features/user/UserProfile';
+import { UserSettingsScreen } from './features/user/UserSettings';
 
 import { RequireAuth } from './components/RequireAuth';
 import { setupAuthInterceptor } from './services/api';
@@ -109,6 +110,14 @@ function App() {
               element={
                 <RequireAuth>
                   <UserProfileScreen />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <RequireAuth>
+                  <UserSettingsScreen />
                 </RequireAuth>
               }
             />

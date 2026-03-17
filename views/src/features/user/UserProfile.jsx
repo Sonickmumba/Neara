@@ -177,8 +177,9 @@ export function UserProfileScreen() {
           </div>
           {isOwnProfile && (
             <button
-              onClick={() => navigate('/homeFeed')}
+              onClick={() => navigate('/homeFeed/settings')}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Open settings"
             >
               <Settings className="w-5 h-5" />
             </button>
