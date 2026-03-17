@@ -1,115 +1,395 @@
-import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, MoreVertical, Phone, Video, Image, Paperclip, Smile, User } from 'lucide-react';
-import { ReputationBadge } from './ReputationBadge';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import {
+  ArrowLeft,
+  Send,
+  MoreVertical,
+  Phone,
+  Video,
+  Paperclip,
+  Smile,
+} from 'lucide-react';
+import { io } from 'socket.io-client';
+import { toast } from 'sonner';
 
-export function ChatConversationScreen({ navigate, chatId }) {
+import apiClient from '../../services/api';
+import { ReputationBadge } from '../../components/ReputableBadge';
+
+const SOCKET_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
+const PAGE_SIZE = 40;
+
+function formatMessageTime(dateLike) {
+  if (!dateLike) return '';
+  const d = new Date(dateLike);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function dedupeById(messages) {
+  const map = new Map();
+  for (const message of messages) {
+    if (!message?.id) continue;
+    map.set(message.id, message);
+  }
+  return [...map.values()];
+}
+
+function toUiMessage(message, currentUserId) {
+  return {
+    id: message.id,
+    sender: message.sender_id === currentUserId ? 'me' : 'them',
+    text: message.content,
+    time: formatMessageTime(message.created_at),
+    read: !!message.is_read,
+    createdAt: message.created_at,
+    senderId: message.sender_id,
+    senderName: message.sender_name,
+    conversationId: message.conversation_id,
+    isOptimistic: !!message.isOptimistic,
+  };
+}
+
+export function ChatConversationScreen() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { conversationId } = useParams();
+  const currentUser = useSelector((state) => state.auth.user);
+
   const [messageText, setMessageText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [error, setError] = useState(null);
+  const [conversationMeta, setConversationMeta] = useState(null);
   const messagesEndRef = useRef(null);
+  const messagesListRef = useRef(null);
+  const restoreScrollRef = useRef(null);
 
-  const [messages, setMessages] = useState([
-    {
-      id: '1',
-      sender: 'them',
-      text: 'Hi! I saw your listing about guitar lessons. Are you still offering them?',
-      time: '10:30 AM',
-      read: true
-    },
-    {
-      id: '2',
-      sender: 'me',
-      text: "Yes! I'd be happy to help you get started. Do you have any experience?",
-      time: '10:32 AM',
-      read: true
-    },
-    {
-      id: '3',
-      sender: 'them',
-      text: "I'm a complete beginner. Never played before.",
-      time: '10:35 AM',
-      read: true
-    },
-    {
-      id: '4',
-      sender: 'me',
-      text: "Perfect! That's exactly what I love to teach. When would you like to start?",
-      time: '10:37 AM',
-      read: true
-    },
-    {
-      id: '5',
-      sender: 'them',
-      text: 'Sure! I can start this weekend if that works for you',
-      time: '10:40 AM',
-      read: true
-    },
-    {
-      id: '6',
-      sender: 'me',
-      text: 'Sounds great! How about Saturday at 2pm?',
-      time: '10:42 AM',
-      read: true
-    },
-    {
-      id: '7',
-      sender: 'them',
-      text: 'Perfect! Should I bring anything?',
-      time: '10:45 AM',
-      read: true
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
+
+  const partnerName =
+    conversationMeta?.partner?.name || location.state?.partnerName || 'User';
+  const partnerId = conversationMeta?.partner?.id || null;
+  const listingTitle =
+    conversationMeta?.listing?.title ||
+    location.state?.listingTitle ||
+    'Listing';
 
   const contact = {
-    name: 'Sarah Martinez',
-    avatar: 'SM',
-    listing: 'Guitar lessons',
-    rating: 4.9,
-    isVerified: true,
-    totalRatings: 47,
-    isOnline: true,
-    hasActiveTrade: true
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Simulate typing indicator
-  useEffect(() => {
-    if (messages.length > 0) {
-      const timer = setTimeout(() => {
-        setIsTyping(true);
-        setTimeout(() => setIsTyping(false), 2000);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  const handleSend = () => {
-    if (!messageText.trim()) return;
-
-    const newMessage = {
-      id: Date.now().toString(),
-      sender: 'me',
-      text: messageText,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: false
-    };
-
-    setMessages([...messages, newMessage]);
-    setMessageText('');
+    name: partnerName,
+    avatar: (partnerName || 'U')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0])
+      .join('')
+      .toUpperCase(),
+    listing: listingTitle,
+    rating: null,
+    isVerified: false,
+    totalRatings: null,
+    isOnline: isConnected,
+    hasActiveTrade: false,
   };
 
   const quickReplies = [
     'Yes, sounds good!',
     'When works for you?',
     'Let me check my schedule',
-    'Can we reschedule?'
+    'Can we reschedule?',
   ];
+
+  const normalizedMessages = useMemo(
+    () =>
+      [...messages]
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        .map((m) => ({ ...m, time: m.time || formatMessageTime(m.createdAt) })),
+    [messages]
+  );
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [normalizedMessages.length]);
+
+  useEffect(() => {
+    if (!restoreScrollRef.current || !messagesListRef.current) return;
+
+    const { previousHeight, previousTop } = restoreScrollRef.current;
+    const container = messagesListRef.current;
+
+    requestAnimationFrame(() => {
+      const delta = container.scrollHeight - previousHeight;
+      container.scrollTop = previousTop + delta;
+      restoreScrollRef.current = null;
+    });
+  }, [normalizedMessages.length]);
+
+  const fetchMessagesPage = useCallback(
+    async ({ before = null } = {}) => {
+      const response = await apiClient.get(
+        `/api/conversations/${conversationId}/messages`,
+        {
+          params: {
+            limit: PAGE_SIZE,
+            ...(before ? { before } : {}),
+          },
+        }
+      );
+
+      const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+      const hasMore = !!response.data?.hasMore;
+      const nextCursor = response.data?.nextCursor || null;
+
+      return {
+        rows,
+        hasMore,
+        nextCursor,
+      };
+    },
+    [conversationId]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadConversation() {
+      if (!conversationId) {
+        setError('Missing conversation ID');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const [metaRes, firstPage] = await Promise.all([
+          apiClient.get(`/api/conversations/${conversationId}`),
+          fetchMessagesPage(),
+        ]);
+
+        if (!mounted) return;
+
+        setConversationMeta(metaRes.data?.data || null);
+
+        const rows = dedupeById(firstPage.rows);
+
+        setHasMoreMessages(firstPage.hasMore);
+
+        setMessages(rows.map((m) => toUiMessage(m, currentUser?.id)));
+      } catch (err) {
+        if (!mounted) return;
+        console.error('Failed loading conversation:', err);
+        setError(err.response?.data?.message || 'Failed to load conversation');
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    loadConversation();
+
+    return () => {
+      mounted = false;
+    };
+  }, [conversationId, currentUser?.id, fetchMessagesPage]);
+
+  const loadOlderMessages = async () => {
+    if (
+      !conversationId ||
+      isLoadingOlder ||
+      !hasMoreMessages ||
+      !messages.length
+    ) {
+      return;
+    }
+
+    const oldest = messages.reduce((oldestItem, msg) => {
+      if (!oldestItem) return msg;
+      return new Date(msg.createdAt) < new Date(oldestItem.createdAt)
+        ? msg
+        : oldestItem;
+    }, null);
+
+    if (!oldest?.createdAt) return;
+
+    const container = messagesListRef.current;
+    if (container) {
+      restoreScrollRef.current = {
+        previousHeight: container.scrollHeight,
+        previousTop: container.scrollTop,
+      };
+    }
+
+    try {
+      setIsLoadingOlder(true);
+      const page = await fetchMessagesPage({ before: oldest.createdAt });
+
+      const olderUi = dedupeById(page.rows).map((m) =>
+        toUiMessage(m, currentUser?.id)
+      );
+
+      setMessages((prev) => {
+        const merged = [...olderUi, ...prev];
+        return dedupeById(merged);
+      });
+      setHasMoreMessages(page.hasMore);
+    } catch (err) {
+      console.error('Failed loading older messages:', err);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
+
+  const handleMessagesScroll = () => {
+    const container = messagesListRef.current;
+    if (!container || isLoadingOlder || !hasMoreMessages) return;
+
+    if (container.scrollTop <= 60) {
+      loadOlderMessages();
+    }
+  };
+
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const socket = io(SOCKET_URL, {
+      withCredentials: true,
+      transports: ['polling', 'websocket'],
+      tryAllTransports: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 500,
+      timeout: 10000,
+    });
+
+    socket.on('connect', () => {
+      setIsConnected(true);
+      socket.emit('join-conversation', conversationId);
+    });
+
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+      setIsTyping(false);
+    });
+
+    socket.on('new_message', (incomingMessage) => {
+      if (
+        !incomingMessage ||
+        incomingMessage.conversation_id !== conversationId
+      ) {
+        return;
+      }
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === incomingMessage.id)) {
+          return prev;
+        }
+
+        const optimisticIndex = prev.findIndex(
+          (m) =>
+            String(m.id).startsWith('temp-') &&
+            m.senderId === incomingMessage.sender_id &&
+            m.text === incomingMessage.content
+        );
+
+        const normalizedIncoming = toUiMessage(
+          incomingMessage,
+          currentUser?.id
+        );
+
+        if (optimisticIndex >= 0) {
+          const next = [...prev];
+          next[optimisticIndex] = normalizedIncoming;
+          return next;
+        }
+
+        return [...prev, normalizedIncoming];
+      });
+    });
+
+    return () => {
+      socket.off('new_message');
+      socket.disconnect();
+    };
+  }, [conversationId, currentUser?.id]);
+
+  const handleSend = async () => {
+    const trimmed = messageText.trim();
+    if (!trimmed || !conversationId || isSending) return;
+
+    const optimisticId = `temp-${Date.now()}`;
+    const optimistic = {
+      id: optimisticId,
+      sender: 'me',
+      text: trimmed,
+      time: formatMessageTime(new Date().toISOString()),
+      read: false,
+      createdAt: new Date().toISOString(),
+      senderId: currentUser?.id,
+      senderName: currentUser?.name || 'You',
+      conversationId,
+      isOptimistic: true,
+    };
+
+    setIsSending(true);
+    setMessageText('');
+    setMessages((prev) => [...prev, optimistic]);
+
+    try {
+      const response = await apiClient.post(
+        `/api/conversations/${conversationId}/messages`,
+        { content: trimmed }
+      );
+
+      const saved = response.data?.data;
+      if (!saved) return;
+
+      const savedUi = toUiMessage(saved, currentUser?.id);
+      setMessages((prev) => {
+        const replaced = prev.map((m) => (m.id === optimisticId ? savedUi : m));
+        const deduped = dedupeById(
+          replaced.map((m) => ({ id: m.id, raw: m })).map((x) => x.raw)
+        );
+        return deduped;
+      });
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setMessageText(trimmed);
+      toast.error(err.response?.data?.message || 'Failed to send message');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading conversation...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <button
+          onClick={() => navigate('/homeFeed')}
+          className="mb-4 inline-flex items-center gap-2 text-gray-700 hover:text-gray-900"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+        <div className="bg-white border border-gray-200 rounded-xl p-4 text-gray-700">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -119,7 +399,7 @@ export function ChatConversationScreen({ navigate, chatId }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <button
-                onClick={() => navigate('chat-list')}
+                onClick={() => navigate('/homeFeed')}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -127,7 +407,12 @@ export function ChatConversationScreen({ navigate, chatId }) {
 
               {/* User Info - Clickable to view profile */}
               <button
-                onClick={() => navigate('user-profile', { selectedUserId: chatId })}
+                onClick={() =>
+                  partnerId &&
+                  navigate('user-profile', {
+                    state: { selectedUserId: partnerId },
+                  })
+                }
                 className="flex items-center gap-3 flex-1 min-w-0 hover:bg-gray-50 rounded-lg p-2 -ml-2 transition-colors"
               >
                 <div className="relative flex-shrink-0">
@@ -141,14 +426,15 @@ export function ChatConversationScreen({ navigate, chatId }) {
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{contact.name}</span>
-                    <ReputationBadge 
+                    <ReputationBadge
                       rating={contact.rating}
                       isVerified={contact.isVerified}
-                      size="small"
+                      totalRatings={contact.totalRatings}
+                      size="sm"
                     />
                   </div>
                   <div className="text-sm text-gray-600 truncate">
-                    {contact.isOnline ? 'Online' : 'Re: ' + contact.listing}
+                    {contact.isOnline ? 'Online' : 'Offline'}
                   </div>
                 </div>
               </button>
@@ -170,9 +456,7 @@ export function ChatConversationScreen({ navigate, chatId }) {
 
           {/* Listing Reference with Active Trade Badge */}
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-gray-500">
-              Re: {contact.listing}
-            </span>
+            <span className="text-xs text-gray-500">Re: {contact.listing}</span>
             {contact.hasActiveTrade && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
                 <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
@@ -184,7 +468,16 @@ export function ChatConversationScreen({ navigate, chatId }) {
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+      <div
+        ref={messagesListRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
+      >
+        {isLoadingOlder && (
+          <div className="text-center text-xs text-gray-500">
+            Loading older messages...
+          </div>
+        )}
         {/* Date Separator */}
         <div className="flex items-center justify-center">
           <span className="px-3 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
@@ -192,9 +485,11 @@ export function ChatConversationScreen({ navigate, chatId }) {
           </span>
         </div>
 
-        {messages.map((message, index) => {
-          const showAvatar = message.sender === 'them' && 
-            (index === messages.length - 1 || messages[index + 1]?.sender !== 'them');
+        {normalizedMessages.map((message, index) => {
+          const showAvatar =
+            message.sender === 'them' &&
+            (index === normalizedMessages.length - 1 ||
+              normalizedMessages[index + 1]?.sender !== 'them');
 
           return (
             <div
@@ -211,7 +506,9 @@ export function ChatConversationScreen({ navigate, chatId }) {
                 </div>
               )}
 
-              <div className={`flex flex-col ${message.sender === 'me' ? 'items-end' : 'items-start'}`}>
+              <div
+                className={`flex flex-col ${message.sender === 'me' ? 'items-end' : 'items-start'}`}
+              >
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                     message.sender === 'me'
@@ -221,9 +518,7 @@ export function ChatConversationScreen({ navigate, chatId }) {
                 >
                   <p className="break-words">{message.text}</p>
                 </div>
-                <div className={`flex items-center gap-1 mt-1 text-xs ${
-                  message.sender === 'me' ? 'text-gray-500' : 'text-gray-500'
-                }`}>
+                <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
                   <span>{message.time}</span>
                   {message.sender === 'me' && (
                     <span className="text-blue-600">
@@ -242,9 +537,18 @@ export function ChatConversationScreen({ navigate, chatId }) {
             <div className="w-8 mr-2 flex-shrink-0"></div>
             <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 rounded-bl-sm">
               <div className="flex gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                ></div>
               </div>
             </div>
           </div>
@@ -271,7 +575,14 @@ export function ChatConversationScreen({ navigate, chatId }) {
       {/* Trade Action Button */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-t border-blue-200 px-4 py-3">
         <button
-          onClick={() => navigate('trade-negotiation', { chatId, listingId: contact.listing })}
+          onClick={() =>
+            navigate('trade-negotiation', {
+              state: {
+                chatId: conversationId,
+                listingId: conversationMeta?.listing?.id,
+              },
+            })
+          }
           className="w-full bg-white border-2 border-blue-400 text-blue-600 font-medium py-3 rounded-xl hover:bg-blue-50 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
         >
           <span className="text-xl">🤝</span>
@@ -292,7 +603,7 @@ export function ChatConversationScreen({ navigate, chatId }) {
             <textarea
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              onKeyPress={(e) => {
+              onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
@@ -309,7 +620,8 @@ export function ChatConversationScreen({ navigate, chatId }) {
           {messageText.trim() ? (
             <button
               onClick={handleSend}
-              className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors flex-shrink-0 mb-1"
+              disabled={isSending}
+              className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors flex-shrink-0 mb-1 disabled:opacity-50"
             >
               <Send className="w-5 h-5 text-white" />
             </button>
