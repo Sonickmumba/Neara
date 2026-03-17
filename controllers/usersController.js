@@ -1,7 +1,6 @@
 const pool = require('../config/database');
 const { calculateUserBadges } = require('../utils/helpers');
 
-
 exports.getUserProfile = async (req, res, next) => {
   try {
     const { userId } = req.params;
@@ -146,7 +145,6 @@ exports.getUserStats = async (req, res, next) => {
       [userId]
     );
 
-    
     const { rows: responseTime } = await pool.query(
       `
       SELECT AVG(
@@ -248,6 +246,39 @@ exports.getUserReviews = async (req, res, next) => {
 exports.getUserBadges = async (req, res, next) => {
   try {
     const { userId } = req.params;
+
+    const dbBadgesResult = await pool.query(
+      `
+      SELECT id, badge_id, badge_name, earned_at
+      FROM user_badges
+      WHERE user_id = $1
+      ORDER BY earned_at DESC
+      `,
+      [userId]
+    );
+
+    if (dbBadgesResult.rows.length > 0) {
+      const iconByBadgeId = {
+        'trusted-trader': '⭐',
+        'top-rated': '🏆',
+        'early-adopter': '🌟',
+        'active-trader': '🔥',
+        verified: '✓',
+      };
+
+      const badges = dbBadgesResult.rows.map((row) => ({
+        id: row.badge_id || row.id,
+        name: row.badge_name,
+        icon: iconByBadgeId[row.badge_id] || '🏅',
+        earnedAt: row.earned_at,
+      }));
+
+      return res.json({
+        success: true,
+        count: badges.length,
+        data: badges,
+      });
+    }
 
     const { rows } = await pool.query(
       `
