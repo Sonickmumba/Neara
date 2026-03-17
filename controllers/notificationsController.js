@@ -36,29 +36,64 @@ exports.createNotification = async (
 exports.getUserNotifications = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { unreadOnly } = req.query;
+    const { unreadOnly, before, beforeId, type } = req.query;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
 
-    let query = `SELECT * FROM notifications WHERE user_id = $1`;
     const params = [userId];
+    let whereClause = 'WHERE user_id = $1';
 
     if (unreadOnly === 'true') {
-      query += ` AND is_read = false`;
+      whereClause += ' AND is_read = false';
     }
 
-    query += ` ORDER BY created_at DESC LIMIT 50`;
+    if (type && ['message', 'trade', 'review', 'listing'].includes(type)) {
+      params.push(type);
+      whereClause += ` AND type = $${params.length}`;
+    }
 
-    const notificationsResult = await pool.query(query, params);
+    if (before && beforeId) {
+      params.push(before, beforeId);
+      whereClause += ` AND (created_at, id) < ($${params.length - 1}::timestamp, $${params.length})`;
+    }
 
-    const { rows } = await pool.query(query, params);
+    params.push(limit + 1);
+
+    const query = `
+      SELECT *
+      FROM notifications
+      ${whereClause}
+      ORDER BY created_at DESC, id DESC
+      LIMIT $${params.length}
+    `;
+
+    const { rows: rawRows } = await pool.query(query, params);
+
+    const hasMore = rawRows.length > limit;
+    const rows = hasMore ? rawRows.slice(0, limit) : rawRows;
 
     const notifications = rows.map((notif) => ({
       ...notif,
       timeAgo: timeAgo(notif.created_at),
     }));
 
+    const unreadCountResult = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND is_read = false`,
+      [userId]
+    );
+
+    const nextCursor = notifications.length
+      ? {
+          before: notifications[notifications.length - 1].created_at,
+          beforeId: notifications[notifications.length - 1].id,
+        }
+      : null;
+
     res.json({
       success: true,
       count: notifications.length,
+      hasMore,
+      nextCursor,
+      unreadCount: unreadCountResult.rows[0]?.count || 0,
       data: notifications,
     });
   } catch (error) {
@@ -98,7 +133,7 @@ exports.markAsRead = async (req, res, next) => {
       [id, userId]
     );
 
-    if (rowCount.length === 0) {
+    if (rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Notification not found',
@@ -144,7 +179,7 @@ exports.deleteNotification = async (req, res, next) => {
       [id, userId]
     );
 
-    if (rowCount.length === 0) {
+    if (rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Notification not found',
