@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -123,6 +123,20 @@ export function ReviewRating() {
     [trade, location.state]
   );
 
+  const photosRef = useRef(photos);
+
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
+
   const toggleTag = (tagId) => {
     if (selectedTags.includes(tagId)) {
       setSelectedTags(selectedTags.filter((t) => t !== tagId));
@@ -143,7 +157,13 @@ export function ReviewRating() {
   };
 
   const removePhoto = (index) => {
-    setPhotos(photos.filter((_, i) => i !== index));
+    setPhotos((prevPhotos) => {
+      const removedUrl = prevPhotos[index];
+      if (removedUrl) {
+        URL.revokeObjectURL(removedUrl);
+      }
+      return prevPhotos.filter((_, i) => i !== index);
+    });
   };
 
   const handleSubmit = async (e) => {
