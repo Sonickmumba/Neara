@@ -360,7 +360,7 @@ export function ListingDetails() {
                 />
               </div>
               <div className="text-sm text-gray-600">
-                {listing.tradesCompleted || 0} trades completed • Member since{' '}
+                {listing.completedtrades || 0} trades completed • Member since{' '}
                 {formatMonthYear(listing.created_at)}
               </div>
             </div>
