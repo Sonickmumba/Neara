@@ -22,6 +22,9 @@ router.post(
 );
 
 // Get messages in conversation
+router.get('/:conversationId', conversationsController.getConversationById);
+
+// Get messages in conversation
 router.get('/:conversationId/messages', conversationsController.getMessages);
 
 // Send message
