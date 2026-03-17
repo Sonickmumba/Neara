@@ -1,12 +1,25 @@
 const express = require('express');
 const usersController = require('../controllers/usersController');
 const ensureAuth = require('../middleware/auth');
-const { validateUpdateUser } = require('../middleware/validation');
+const {
+  validateUpdateUser,
+  validateUpdateUserSettings,
+} = require('../middleware/validation');
 
 const router = express.Router();
 
 // All routes are protected
 router.use(ensureAuth);
+
+// Get own settings
+router.get('/settings', usersController.getUserSettings);
+
+// Update own settings
+router.patch(
+  '/settings',
+  validateUpdateUserSettings,
+  usersController.updateUserSettings
+);
 
 // Get user profile
 router.get('/:userId', usersController.getUserProfile);
