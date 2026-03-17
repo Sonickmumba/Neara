@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -69,6 +69,12 @@ export function UserSettingsScreen() {
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const hydrationRef = useRef(false);
+  const settingsSaveTimerRef = useRef(null);
 
   const [profile, setProfile] = useState({
     name: '',
@@ -120,6 +126,75 @@ export function UserSettingsScreen() {
   useEffect(() => {
     localStorage.setItem(PRIVACY_PREFS_KEY, JSON.stringify(privacy));
   }, [privacy]);
+
+  useEffect(() => {
+    const bootstrapSettings = async () => {
+      if (!currentUser?.id) return;
+      setLoadingSettings(true);
+      setSettingsError('');
+      try {
+        const res = await apiClient.get('/api/users/settings');
+        const serverNotifications = res.data?.data?.notifications;
+        const serverPrivacy = res.data?.data?.privacy;
+
+        if (serverNotifications) {
+          setNotifications((prev) => ({
+            ...prev,
+            ...serverNotifications,
+          }));
+        }
+
+        if (serverPrivacy) {
+          setPrivacy((prev) => ({
+            ...prev,
+            ...serverPrivacy,
+          }));
+        }
+      } catch (err) {
+        setSettingsError(
+          err.response?.data?.message ||
+            'Using local settings; sync will retry automatically.'
+        );
+      } finally {
+        hydrationRef.current = true;
+        setLoadingSettings(false);
+      }
+    };
+
+    bootstrapSettings();
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (!hydrationRef.current || !currentUser?.id) return;
+
+    if (settingsSaveTimerRef.current) {
+      clearTimeout(settingsSaveTimerRef.current);
+    }
+
+    settingsSaveTimerRef.current = setTimeout(async () => {
+      setSavingSettings(true);
+      setSettingsError('');
+      try {
+        await apiClient.patch('/api/users/settings', {
+          notifications,
+          privacy,
+        });
+        setLastSavedAt(Date.now());
+      } catch (err) {
+        setSettingsError(
+          err.response?.data?.message || 'Failed to sync settings.'
+        );
+      } finally {
+        setSavingSettings(false);
+      }
+    }, 450);
+
+    return () => {
+      if (settingsSaveTimerRef.current) {
+        clearTimeout(settingsSaveTimerRef.current);
+      }
+    };
+  }, [notifications, privacy, currentUser?.id]);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -291,6 +366,31 @@ export function UserSettingsScreen() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {(loadingSettings ||
+          savingSettings ||
+          settingsError ||
+          lastSavedAt) && (
+          <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 text-xs text-gray-600 flex items-center justify-between gap-2">
+            <span>
+              {loadingSettings
+                ? 'Loading settings…'
+                : savingSettings
+                  ? 'Saving settings…'
+                  : settingsError
+                    ? settingsError
+                    : `Settings synced ${new Date(
+                        lastSavedAt
+                      ).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`}
+            </span>
+            {(loadingSettings || savingSettings) && (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            )}
+          </div>
+        )}
+
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Profile</h3>
