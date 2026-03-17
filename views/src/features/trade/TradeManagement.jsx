@@ -38,6 +38,15 @@ function formatDate(dateLike) {
 
 function formatTime(dateLike) {
   if (!dateLike) return '—';
+  // Handle TIME type from PostgreSQL (e.g., "14:30:00")
+  if (
+    typeof dateLike === 'string' &&
+    dateLike.includes(':') &&
+    !dateLike.includes('T')
+  ) {
+    const parts = dateLike.split(':');
+    return `${parts[0]}:${parts[1]}`;
+  }
   const date = new Date(dateLike);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -172,6 +181,8 @@ export function TradeManagementScreen() {
     return null;
   }
 
+  console.log('Trade data:', trade, dateTime);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -227,7 +238,7 @@ export function TradeManagementScreen() {
               </div>
             </div>
             <button
-              onClick={() => navigate('/homeFeed/chat-list')}
+              onClick={() => navigate(`/homeFeed/chat-conversation/${location.state?.fromConversationId}`)}
               className="p-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
             >
               <MessageCircle className="w-5 h-5" />
@@ -286,7 +297,7 @@ export function TradeManagementScreen() {
               <div>
                 <div className="text-sm text-gray-600">Date</div>
                 <div className="font-medium text-gray-900">
-                  {formatDate(dateTime)}
+                  {formatDate(trade.trade_date)}
                 </div>
               </div>
             </div>
@@ -296,7 +307,7 @@ export function TradeManagementScreen() {
               <div>
                 <div className="text-sm text-gray-600">Time</div>
                 <div className="font-medium text-gray-900">
-                  {formatTime(dateTime)}
+                  {formatTime(trade.trade_time)}
                 </div>
               </div>
             </div>
