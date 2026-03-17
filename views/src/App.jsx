@@ -25,6 +25,7 @@ import { MessageListScreen } from './features/chat/MessageListScreen';
 import { TradeNegotiation } from './features/trade/TradeNegotiation';
 import { TradeManagementScreen } from './features/trade/TradeManagement';
 import { ReviewRating } from './features/trade/ReviewRating';
+import { UserProfileScreen } from './features/user/UserProfile';
 
 import { RequireAuth } from './components/RequireAuth';
 import { setupAuthInterceptor } from './services/api';
@@ -105,7 +106,11 @@ function App() {
             />
             <Route
               path="user-profile"
-              element={<div className="p-6">User profile coming soon!</div>}
+              element={
+                <RequireAuth>
+                  <UserProfileScreen />
+                </RequireAuth>
+              }
             />
             <Route
               path="notifications"
