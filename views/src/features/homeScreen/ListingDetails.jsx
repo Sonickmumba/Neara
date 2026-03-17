@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
   ArrowLeft,
   MessageSquare,
@@ -19,6 +20,7 @@ import { formatMonthYear } from '../../utils/date.js';
 export function ListingDetails() {
   const { selectedListingId } = useParams();
   const navigate = useNavigate();
+  const currentUser = useSelector((state) => state.auth.user);
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -93,11 +95,41 @@ export function ListingDetails() {
     fetchSimilarListings();
   }, [selectedListingId]);
 
-  const handleContact = () => {
-    // TODO: Implement chat functionality
-    toast.info(
-      'Chat functionality coming soon! For now, you can contact the seller directly.'
-    );
+  const handleContact = async () => {
+    if (!listing?.id || !listing?.user_id) {
+      toast.error('Cannot start conversation for this listing');
+      return;
+    }
+
+    if (currentUser?.id && currentUser.id === listing.user_id) {
+      toast.info('This is your own listing');
+      return;
+    }
+
+    try {
+      const response = await apiClient.post('/api/conversations', {
+        listingId: listing.id,
+        participantId: listing.user_id,
+      });
+
+      const conversationId = response.data?.data?.id;
+      if (!conversationId) {
+        toast.error('Failed to open conversation');
+        return;
+      }
+
+      navigate(`/homeFeed/chat-conversation/${conversationId}`, {
+        state: {
+          listingTitle: listing.title,
+          partnerName: listing.author_name,
+        },
+      });
+    } catch (err) {
+      console.error('Error starting conversation:', err);
+      toast.error(
+        err.response?.data?.message || 'Failed to start conversation'
+      );
+    }
   };
 
   const handleShare = async () => {
