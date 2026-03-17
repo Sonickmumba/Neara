@@ -8,16 +8,71 @@ exports.getUserConversations = async (req, res, next) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const before = req.query.before;
     const beforeId = req.query.beforeId;
+    const search = (req.query.search || '').trim();
+    const allowedFilters = new Set(['all', 'unread', 'active-trades']);
+    const filter = allowedFilters.has(req.query.filter)
+      ? req.query.filter
+      : 'all';
 
     const params = [userId];
-    let cursorWhere = '';
+    let whereClause = `
+      WHERE (c.participant1_id = $1 OR c.participant2_id = $1)
+    `;
+
+    if (search) {
+      params.push(`%${search}%`);
+      const searchParam = `$${params.length}`;
+
+      whereClause += `
+        AND (
+          l.title ILIKE ${searchParam}
+          OR CASE
+            WHEN c.participant1_id = $1 THEN u2.name
+            ELSE u1.name
+          END ILIKE ${searchParam}
+          OR EXISTS (
+            SELECT 1
+            FROM messages sm
+            WHERE sm.conversation_id = c.id
+              AND sm.content ILIKE ${searchParam}
+          )
+        )
+      `;
+    }
+
+    if (filter === 'unread') {
+      whereClause += `
+        AND EXISTS (
+          SELECT 1
+          FROM messages um
+          WHERE um.conversation_id = c.id
+            AND um.sender_id <> $1
+            AND um.is_read = FALSE
+        )
+      `;
+    }
+
+    if (filter === 'active-trades') {
+      whereClause += `
+        AND EXISTS (
+          SELECT 1
+          FROM trades t
+          WHERE t.listing_id = c.listing_id
+            AND t.status IN ('pending', 'accepted')
+            AND (t.requester_id = $1 OR t.owner_id = $1)
+        )
+      `;
+    }
 
     if (before && beforeId) {
       params.push(before, beforeId);
-      cursorWhere = `
+      const beforeParam = `$${params.length - 1}`;
+      const beforeIdParam = `$${params.length}`;
+
+      whereClause += `
         AND (
           COALESCE(c.last_message_at, c.created_at), c.id
-        ) < ($2::timestamp, $3)
+        ) < (${beforeParam}::timestamp, ${beforeIdParam})
       `;
     }
 
@@ -71,18 +126,59 @@ exports.getUserConversations = async (req, res, next) => {
             AND m.is_read = FALSE
         ) AS unread_count
 
+        ,EXISTS (
+          SELECT 1
+          FROM trades t
+          WHERE t.listing_id = c.listing_id
+            AND t.status IN ('pending', 'accepted')
+            AND (t.requester_id = $1 OR t.owner_id = $1)
+        ) AS has_active_trade
+
       FROM conversations c
       JOIN listings l ON c.listing_id = l.id
       JOIN users u1 ON c.participant1_id = u1.id
       JOIN users u2 ON c.participant2_id = u2.id
-      WHERE c.participant1_id = $1
-         OR c.participant2_id = $1
-      ${cursorWhere}
+      ${whereClause}
       ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
       LIMIT ${limitParam}
       `,
       params
     );
+
+    const countsResult = await pool.query(
+      `
+      SELECT
+        COUNT(*)::int AS all_count,
+        COUNT(*) FILTER (
+          WHERE EXISTS (
+            SELECT 1
+            FROM messages um
+            WHERE um.conversation_id = c.id
+              AND um.sender_id <> $1
+              AND um.is_read = FALSE
+          )
+        )::int AS unread_count,
+        COUNT(*) FILTER (
+          WHERE EXISTS (
+            SELECT 1
+            FROM trades t
+            WHERE t.listing_id = c.listing_id
+              AND t.status IN ('pending', 'accepted')
+              AND (t.requester_id = $1 OR t.owner_id = $1)
+          )
+        )::int AS active_trades_count
+      FROM conversations c
+      WHERE c.participant1_id = $1
+         OR c.participant2_id = $1
+      `,
+      [userId]
+    );
+
+    const counts = countsResult.rows[0] || {
+      all_count: 0,
+      unread_count: 0,
+      active_trades_count: 0,
+    };
 
     const hasMore = result.rows.length > limit;
     const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
@@ -108,6 +204,11 @@ exports.getUserConversations = async (req, res, next) => {
       count: conversations.length,
       hasMore,
       nextCursor,
+      counts: {
+        all: Number(counts.all_count || 0),
+        unread: Number(counts.unread_count || 0),
+        activeTrades: Number(counts.active_trades_count || 0),
+      },
       data: conversations,
     });
   } catch (error) {
