@@ -172,7 +172,7 @@ export function TradeNegotiation() {
                 />
               </div>
               <p className="text-sm text-gray-600 mb-2">
-                {listing.totalRatings} completed trades
+                {listing.totalRatings ?? 0} completed trades
               </p>
               <button
                 onClick={() =>
