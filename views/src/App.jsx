@@ -22,6 +22,9 @@ import { CreateListing } from './components/CreateListing';
 import { HomeSearchResult } from './features/homeScreen/components/HomeSearchResult';
 import { ChatConversationScreen } from './features/chat/ChatConversationScreen';
 import { MessageListScreen } from './features/chat/MessageListScreen';
+import { TradeNegotiation } from './features/trade/TradeNegotiation';
+import { TradeManagementScreen } from './features/trade/TradeManagement';
+import { ReviewRating } from './features/trade/ReviewRating';
 
 import { RequireAuth } from './components/RequireAuth';
 import { setupAuthInterceptor } from './services/api';
@@ -73,6 +76,30 @@ function App() {
               element={
                 <RequireAuth>
                   <ChatConversationScreen />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="trade-negotiation"
+              element={
+                <RequireAuth>
+                  <TradeNegotiation />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="trade-management/:tradeId"
+              element={
+                <RequireAuth>
+                  <TradeManagementScreen />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="review-rating/:tradeId"
+              element={
+                <RequireAuth>
+                  <ReviewRating />
                 </RequireAuth>
               }
             />
