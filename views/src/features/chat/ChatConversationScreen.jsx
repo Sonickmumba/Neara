@@ -378,7 +378,7 @@ export function ChatConversationScreen() {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <button
-          onClick={() => navigate('/homeFeed')}
+          onClick={() => navigate('/homeFeed/chat-list')}
           className="mb-4 inline-flex items-center gap-2 text-gray-700 hover:text-gray-900"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -399,7 +399,7 @@ export function ChatConversationScreen() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <button
-                onClick={() => navigate('/homeFeed')}
+                onClick={() => navigate('/homeFeed/chat-list')}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
