@@ -20,7 +20,7 @@ const SUGGESTED_LOCATIONS = [
   'Coffee House on Main St',
   'Community Center',
   'Public Library',
-  'Town Square'
+  'Town Square',
 ];
 
 export function TradeNegotiation() {
@@ -38,7 +38,7 @@ export function TradeNegotiation() {
     location: '',
     notes: '',
     offering: '',
-    duration: '1'
+    duration: '1',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,7 +77,8 @@ export function TradeNegotiation() {
     if (!formData.date) newErrors.date = 'Please select a date';
     if (!formData.time) newErrors.time = 'Please select a time';
     if (!formData.location) newErrors.location = 'Please enter a location';
-    if (!formData.offering) newErrors.offering = 'Please specify what you are offering';
+    if (!formData.offering)
+      newErrors.offering = 'Please specify what you are offering';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -156,7 +157,7 @@ export function TradeNegotiation() {
             <Sparkles className="w-4 h-4" />
             <span>Trading with</span>
           </div>
-          
+
           <div className="flex items-start gap-4 mb-4">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xl font-medium flex-shrink-0">
               {listing.avatar}
@@ -164,13 +165,15 @@ export function TradeNegotiation() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-gray-900">{listing.owner}</h3>
-                <ReputationBadge 
+                <ReputationBadge
                   rating={listing.rating}
                   isVerified={listing.isVerified}
                   size="small"
                 />
               </div>
-              <p className="text-sm text-gray-600 mb-2">{listing.totalRatings} completed trades</p>
+              <p className="text-sm text-gray-600 mb-2">
+                {listing.totalRatings} completed trades
+              </p>
               <button
                 onClick={() =>
                   listing.ownerId &&
@@ -192,8 +195,12 @@ export function TradeNegotiation() {
                 🎸
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900 mb-1">{listing.title}</div>
-                <div className="text-sm text-gray-600">{listing.description}</div>
+                <div className="font-medium text-gray-900 mb-1">
+                  {listing.title}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {listing.description}
+                </div>
                 <div className="mt-2 inline-block px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
                   They're offering
                 </div>
@@ -204,7 +211,6 @@ export function TradeNegotiation() {
 
         {/* Trade Details Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          
           {/* Date & Time */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -215,7 +221,10 @@ export function TradeNegotiation() {
             <div className="space-y-4">
               {/* Date */}
               <div>
-                <label htmlFor="date" className="block mb-2 text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="date"
+                  className="block mb-2 text-sm font-medium text-gray-700"
+                >
                   Select Date <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -231,12 +240,17 @@ export function TradeNegotiation() {
                     errors.date ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
-                {errors.date && <p className="text-sm text-red-500 mt-1">{errors.date}</p>}
+                {errors.date && (
+                  <p className="text-sm text-red-500 mt-1">{errors.date}</p>
+                )}
               </div>
 
               {/* Time */}
               <div>
-                <label htmlFor="time" className="block mb-2 text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="time"
+                  className="block mb-2 text-sm font-medium text-gray-700"
+                >
                   Select Time <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -251,19 +265,26 @@ export function TradeNegotiation() {
                     errors.time ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
-                {errors.time && <p className="text-sm text-red-500 mt-1">{errors.time}</p>}
+                {errors.time && (
+                  <p className="text-sm text-red-500 mt-1">{errors.time}</p>
+                )}
               </div>
 
               {/* Duration */}
               <div>
-                <label htmlFor="duration" className="block mb-2 text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="duration"
+                  className="block mb-2 text-sm font-medium text-gray-700"
+                >
                   <Clock className="w-4 h-4 inline mr-1" />
                   Expected Duration
                 </label>
                 <select
                   id="duration"
                   value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, duration: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="0.5">30 minutes</option>
@@ -286,7 +307,10 @@ export function TradeNegotiation() {
 
             <div className="space-y-3">
               <div>
-                <label htmlFor="location" className="block mb-2 text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="location"
+                  className="block mb-2 text-sm font-medium text-gray-700"
+                >
                   Meeting Location <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -302,12 +326,16 @@ export function TradeNegotiation() {
                     errors.location ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
-                {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
+                {errors.location && (
+                  <p className="text-sm text-red-500 mt-1">{errors.location}</p>
+                )}
               </div>
 
               {/* Suggested Locations */}
               <div>
-                <p className="text-sm text-gray-600 mb-2">Or choose a suggested location:</p>
+                <p className="text-sm text-gray-600 mb-2">
+                  Or choose a suggested location:
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTED_LOCATIONS.map((loc) => (
                     <button
@@ -352,7 +380,9 @@ export function TradeNegotiation() {
                 errors.offering ? 'border-red-500' : 'border-gray-300'
               }`}
             />
-            {errors.offering && <p className="text-sm text-red-500 mt-1">{errors.offering}</p>}
+            {errors.offering && (
+              <p className="text-sm text-red-500 mt-1">{errors.offering}</p>
+            )}
           </div>
 
           {/* Additional Notes */}
@@ -363,7 +393,9 @@ export function TradeNegotiation() {
             </h3>
             <textarea
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
               placeholder="Any other details, questions, or special requests..."
               rows={3}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -380,17 +412,21 @@ export function TradeNegotiation() {
               <div className="flex justify-between">
                 <span className="text-gray-600">Date:</span>
                 <span className="font-medium">
-                  {formData.date ? new Date(formData.date).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  }) : 'Not selected'}
+                  {formData.date
+                    ? new Date(formData.date).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : 'Not selected'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Time:</span>
-                <span className="font-medium">{formData.time || 'Not selected'}</span>
+                <span className="font-medium">
+                  {formData.time || 'Not selected'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Duration:</span>
@@ -398,7 +434,9 @@ export function TradeNegotiation() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Location:</span>
-                <span className="font-medium">{formData.location || 'Not selected'}</span>
+                <span className="font-medium">
+                  {formData.location || 'Not selected'}
+                </span>
               </div>
             </div>
           </div>
