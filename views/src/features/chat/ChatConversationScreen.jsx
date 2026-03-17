@@ -581,7 +581,8 @@ export function ChatConversationScreen() {
                 chatId: conversationId,
                 listingId: conversationMeta?.listing?.id,
                 listingTitle: conversationMeta?.listing?.title || listingTitle,
-                listingDescription: conversationMeta?.listing?.description || '',
+                listingDescription:
+                  conversationMeta?.listing?.description || '',
                 partnerId,
                 partnerName,
               },
