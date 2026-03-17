@@ -252,22 +252,47 @@ const validateChangePassword = [
  * CONVERSATION/MESSAGE VALIDATIONS
  */
 const validateCreateConversation = [
-  body('participant_id')
-    .notEmpty()
-    .withMessage('Participant ID is required')
+  body('listingId').optional().isUUID().withMessage('Invalid listing ID'),
+  body('listing_id').optional().isUUID().withMessage('Invalid listing ID'),
+  body('participantId')
+    .optional()
     .isUUID()
     .withMessage('Invalid participant ID'),
+  body('participant_id')
+    .optional()
+    .isUUID()
+    .withMessage('Invalid participant ID'),
+  body().custom((_, { req }) => {
+    if (!req.body.listingId && !req.body.listing_id) {
+      throw new Error('Listing ID is required');
+    }
+    if (!req.body.participantId && !req.body.participant_id) {
+      throw new Error('Participant ID is required');
+    }
+    return true;
+  }),
   handleValidationErrors,
 ];
 
 const validateSendMessage = [
   param('conversationId').isUUID().withMessage('Invalid conversation ID'),
-  body('message')
+  body('content')
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage('Message cannot be empty')
     .isLength({ max: 5000 })
     .withMessage('Message too long'),
+  body('message')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 })
+    .withMessage('Message too long'),
+  body().custom((_, { req }) => {
+    const value = req.body.content || req.body.message;
+    if (!value || !String(value).trim()) {
+      throw new Error('Message cannot be empty');
+    }
+    return true;
+  }),
   handleValidationErrors,
 ];
 

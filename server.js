@@ -5,8 +5,8 @@ const path = require('path');
 const dotenv = require('dotenv');
 dotenv.config();
 
-// const http = require('http');
-// const { Server } = require('socket.io');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -30,20 +30,19 @@ const activityRoutes = require('./routes/activityRoutes');
 const imageRoutes = require('./routes/imageRoutes');
 
 const app = express();
-
-// const server = http.createServer(app);
+const server = http.createServer(app);
 /* ======================
    SOCKET.IO SETUP
 ====================== */
 
-// const io = new Server(server, {
-//   cors: {
-//     origin: 'http://localhost:5173',
-//     credentials: true,
-//   },
-// });
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    credentials: true,
+  },
+});
 
-// app.set('io', io);
+app.set('io', io);
 
 // cors for cross-origin requests here
 app.use(securityHeaders);
@@ -118,23 +117,23 @@ app.get('/api/test-email', async (req, res) => {
 /* ======================
    SOCKET EVENTS
 ====================== */
-// io.on('connection', (socket) => {
-//   console.log('🟢 Socket connected:', socket.id);
+io.on('connection', (socket) => {
+  console.log('🟢 Socket connected:', socket.id);
 
-//   socket.on('join-conversation', (conversationId, ack) => {
-//     socket.join(conversationId);
-//     console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
-//     if (ack) ack(true);
-//   });
+  socket.on('join-conversation', (conversationId, ack) => {
+    if (!conversationId) {
+      if (ack) ack(false);
+      return;
+    }
 
-//   socket.on('send-message', ({ conversationId, message }) => {
-//     io.to(conversationId).emit('new-message', message);
-//   });
+    socket.join(conversationId);
+    if (ack) ack(true);
+  });
 
-//   socket.on('disconnect', () => {
-//     console.log('🔴 Socket disconnected:', socket.id);
-//   });
-// });
+  socket.on('disconnect', () => {
+    console.log('🔴 Socket disconnected:', socket.id);
+  });
+});
 
 // 404 error handler
 app.use((req, res) => {
@@ -148,6 +147,6 @@ app.use((req, res) => {
    START SERVER
 ====================== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`API Server is running at http://localhost:${PORT}.`);
 });

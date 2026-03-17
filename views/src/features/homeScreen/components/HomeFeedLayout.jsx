@@ -6,8 +6,11 @@ export function HomeFeedLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hide BottomNav on listing details and create listing pages
-  const shouldShowBottomNav = !location.pathname.includes('/listing-details/') && !location.pathname.includes('/create-listing');
+  // Hide BottomNav on full-screen flows
+  const shouldShowBottomNav =
+    !location.pathname.includes('/listing-details/') &&
+    !location.pathname.includes('/create-listing') &&
+    !location.pathname.includes('/chat-conversation/');
 
   // placeholder for any shared layout logic (e.g. conditionally show
   // a notifications drawer based on route or screen size)

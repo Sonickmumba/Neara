@@ -28,13 +28,7 @@ router.delete(
   notificationsController.deleteNotification
 );
 
-// Mark notification as read
-router.patch('/:id/read', notificationsController.markAsRead);
-
 // Mark all as read
 router.patch('/read-all', notificationsController.markAllAsRead);
-
-// Delete notification
-router.delete('/:id', notificationsController.deleteNotification);
 
 module.exports = router;
