@@ -576,10 +576,14 @@ export function ChatConversationScreen() {
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-t border-blue-200 px-4 py-3">
         <button
           onClick={() =>
-            navigate('trade-negotiation', {
+            navigate('/homeFeed/trade-negotiation', {
               state: {
                 chatId: conversationId,
                 listingId: conversationMeta?.listing?.id,
+                listingTitle: conversationMeta?.listing?.title || listingTitle,
+                listingDescription: conversationMeta?.listing?.description || '',
+                partnerId,
+                partnerName,
               },
             })
           }
