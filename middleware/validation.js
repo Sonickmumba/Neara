@@ -256,6 +256,62 @@ const validateChangePassword = [
   handleValidationErrors,
 ];
 
+const validateUpdateUserSettings = [
+  body('notifications')
+    .optional()
+    .isObject()
+    .withMessage('notifications must be an object'),
+  body('notifications.push')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications.push must be boolean'),
+  body('notifications.email')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications.email must be boolean'),
+  body('notifications.sms')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications.sms must be boolean'),
+  body('notifications.messages')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications.messages must be boolean'),
+  body('notifications.trades')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications.trades must be boolean'),
+  body('notifications.reviews')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications.reviews must be boolean'),
+  body('notifications.community')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications.community must be boolean'),
+  body('privacy')
+    .optional()
+    .isObject()
+    .withMessage('privacy must be an object'),
+  body('privacy.showEmail')
+    .optional()
+    .isBoolean()
+    .withMessage('privacy.showEmail must be boolean'),
+  body('privacy.showPhone')
+    .optional()
+    .isBoolean()
+    .withMessage('privacy.showPhone must be boolean'),
+  body('privacy.showLocation')
+    .optional()
+    .isBoolean()
+    .withMessage('privacy.showLocation must be boolean'),
+  body('privacy.publicProfile')
+    .optional()
+    .isBoolean()
+    .withMessage('privacy.publicProfile must be boolean'),
+  handleValidationErrors,
+];
+
 /**
  * CONVERSATION/MESSAGE VALIDATIONS
  */
@@ -403,6 +459,7 @@ module.exports = {
   // Users
   validateUpdateUser,
   validateChangePassword,
+  validateUpdateUserSettings,
 
   // Conversations
   validateCreateConversation,
