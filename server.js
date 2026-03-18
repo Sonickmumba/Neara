@@ -4,7 +4,6 @@ const path = require('path');
 // Load environment variables FIRST before any other imports
 const dotenv = require('dotenv');
 dotenv.config();
-const jwt = require('jsonwebtoken');
 
 const validateProductionEnv = () => {
   if (process.env.NODE_ENV !== 'production') return;
@@ -141,50 +140,11 @@ app.get('/api/test-email', async (req, res) => {
 /* ======================
    SOCKET EVENTS
 ====================== */
-// Authenticate sockets using JWT and attach user info to the socket
-io.use((socket, next) => {
-  const auth = socket.handshake && socket.handshake.auth;
-  const token = auth && auth.token;
-
-  if (!token) {
-    return next(new Error('Authentication error: missing token'));
-  }
-
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-
-    socket.user = {
-      id: payload.sub || payload.userId,
-      conversations: Array.isArray(payload.conversations)
-        ? payload.conversations
-        : [],
-    };
-
-    if (!socket.user.id) {
-      return next(new Error('Authentication error: invalid token payload'));
-    }
-
-    next();
-  } catch (err) {
-    next(new Error('Authentication error: invalid token'));
-  }
-});
-
 io.on('connection', (socket) => {
   console.log('🟢 Socket connected:', socket.id);
 
   socket.on('join-conversation', (conversationId, ack) => {
     if (!conversationId) {
-      if (ack) ack(false);
-      return;
-    }
-
-    // Ensure the authenticated user is allowed to join this conversation
-    if (
-      !socket.user ||
-      !Array.isArray(socket.user.conversations) ||
-      !socket.user.conversations.includes(conversationId)
-    ) {
       if (ack) ack(false);
       return;
     }
@@ -197,23 +157,9 @@ io.on('connection', (socket) => {
   socket.on('user_typing', (conversationId, userData) => {
     if (!conversationId || !userData) return;
 
-    // Ensure the socket is authenticated and part of this conversation
-    if (
-      !socket.user ||
-      !Array.isArray(socket.user.conversations) ||
-      !socket.user.conversations.includes(conversationId)
-    ) {
-      return;
-    }
-
-    // Prevent user identity spoofing
-    if (userData.userId && userData.userId !== socket.user.id) {
-      return;
-    }
-
     // Broadcast to all users in the conversation except the sender
     socket.to(conversationId).emit('user_typing', {
-      userId: socket.user.id,
+      userId: userData.userId,
       userName: userData.userName,
       timestamp: Date.now(),
     });
@@ -223,22 +169,8 @@ io.on('connection', (socket) => {
   socket.on('user_stopped_typing', (conversationId, userId) => {
     if (!conversationId || !userId) return;
 
-    // Ensure the socket is authenticated and part of this conversation
-    if (
-      !socket.user ||
-      !Array.isArray(socket.user.conversations) ||
-      !socket.user.conversations.includes(conversationId)
-    ) {
-      return;
-    }
-
-    // Prevent user identity spoofing
-    if (userId !== socket.user.id) {
-      return;
-    }
-
     // Broadcast to all users in the conversation except the sender
-    socket.to(conversationId).emit('user_stopped_typing', { userId: socket.user.id });
+    socket.to(conversationId).emit('user_stopped_typing', { userId });
   });
 
   socket.on('disconnect', () => {
