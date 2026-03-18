@@ -29,6 +29,7 @@ import { UserProfileScreen } from './features/user/UserProfile';
 import { UserSettingsScreen } from './features/user/UserSettings';
 
 import { RequireAuth } from './components/RequireAuth';
+import { RequirePhoneVerified } from './components/RequirePhoneVerified';
 import { setupAuthInterceptor } from './services/api';
 import { Toaster } from 'sonner';
 
@@ -69,7 +70,9 @@ function App() {
               path="chat-list"
               element={
                 <RequireAuth>
-                  <MessageListScreen />
+                  <RequirePhoneVerified>
+                    <MessageListScreen />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />
@@ -77,7 +80,9 @@ function App() {
               path="chat-conversation/:conversationId"
               element={
                 <RequireAuth>
-                  <ChatConversationScreen />
+                  <RequirePhoneVerified>
+                    <ChatConversationScreen />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />
@@ -85,7 +90,9 @@ function App() {
               path="trade-negotiation"
               element={
                 <RequireAuth>
-                  <TradeNegotiation />
+                  <RequirePhoneVerified>
+                    <TradeNegotiation />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />
@@ -93,7 +100,9 @@ function App() {
               path="trade-management/:tradeId"
               element={
                 <RequireAuth>
-                  <TradeManagementScreen />
+                  <RequirePhoneVerified>
+                    <TradeManagementScreen />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />
@@ -101,7 +110,9 @@ function App() {
               path="review-rating/:tradeId"
               element={
                 <RequireAuth>
-                  <ReviewRating />
+                  <RequirePhoneVerified>
+                    <ReviewRating />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />
@@ -131,9 +142,11 @@ function App() {
               path="create-listing"
               element={
                 <RequireAuth>
-                  <CreateListing
-                    navigate={(path, state) => navigate(path, { state })}
-                  />
+                  <RequirePhoneVerified>
+                    <CreateListing
+                      navigate={(path, state) => navigate(path, { state })}
+                    />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />

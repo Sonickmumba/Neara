@@ -15,9 +15,8 @@ passport.use(
     },
     async (email, password, done) => {
       try {
-
         const result = await pool.query(
-          'SELECT id, name, email, password_hash FROM users WHERE email = $1',
+          'SELECT id, name, email, phone, phone_verified, password_hash FROM users WHERE email = $1',
           [email]
         );
 
@@ -33,11 +32,13 @@ passport.use(
           console.log('Password invalid for email:', email);
           return done(null, false, { message: 'Invalid email or password' });
         }
-        
+
         return done(null, {
           id: user.id,
           name: user.name,
           email: user.email,
+          phone: user.phone,
+          phone_verified: !!user.phone_verified,
         });
       } catch (err) {
         console.error('Login error:', err);
@@ -60,7 +61,7 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, location_lat, location_lng, neighborhood FROM users WHERE id = $1',
+      'SELECT id, name, email, phone, phone_verified, location_lat, location_lng, neighborhood FROM users WHERE id = $1',
       [id]
     );
 

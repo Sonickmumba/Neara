@@ -106,7 +106,7 @@ export function LoginSignup() {
         setShowVerificationUI(true);
         // Don't navigate yet - wait for email verification
       } else {
-        await dispatch(
+        const user = await dispatch(
           loginUser({
             email: formData.email,
             password: formData.password,
@@ -114,7 +114,17 @@ export function LoginSignup() {
         ).unwrap();
 
         toast.success('Welcome back!');
-        navigate('/homeFeed');
+        if (user?.phone_verified) {
+          navigate('/homeFeed');
+        } else {
+          navigate('/verifyPhone', {
+            state: {
+              phone: user?.phone || '',
+              returnTo: '/homeFeed',
+              allowSkip: true,
+            },
+          });
+        }
       }
     } catch (err) {
       toast.error(err);
@@ -164,11 +174,21 @@ export function LoginSignup() {
                   })
                 )
                   .unwrap()
-                  .then(() => {
+                  .then((user) => {
                     toast.success('Account created!');
                     dispatch(resetEmailVerification());
                     setShowVerificationUI(false);
-                    navigate('/homeFeed');
+                    if (user?.phone_verified) {
+                      navigate('/homeFeed');
+                    } else {
+                      navigate('/verifyPhone', {
+                        state: {
+                          phone: user?.phone || '',
+                          returnTo: '/homeFeed',
+                          allowSkip: true,
+                        },
+                      });
+                    }
                   })
                   .catch((err) => {
                     // if the failure is because the user already exists,
@@ -184,11 +204,21 @@ export function LoginSignup() {
                         })
                       )
                         .unwrap()
-                        .then(() => {
+                        .then((user) => {
                           toast.success('Welcome back!');
                           dispatch(resetEmailVerification());
                           setShowVerificationUI(false);
-                          navigate('/homeFeed');
+                          if (user?.phone_verified) {
+                            navigate('/homeFeed');
+                          } else {
+                            navigate('/verifyPhone', {
+                              state: {
+                                phone: user?.phone || '',
+                                returnTo: '/homeFeed',
+                                allowSkip: true,
+                              },
+                            });
+                          }
                         })
                         .catch((loginErr) => {
                           toast.error(loginErr || 'Login failed');

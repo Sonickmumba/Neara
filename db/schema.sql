@@ -72,6 +72,29 @@ CREATE INDEX idx_email_verification_email ON email_verification_codes(email);
 CREATE INDEX idx_email_verification_expires ON email_verification_codes(expires_at);
 
 -- =====================================================
+-- PHONE VERIFICATION CODES
+-- =====================================================
+
+CREATE TABLE phone_verification_codes (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    code_hash VARCHAR(128) NOT NULL,
+    attempts INT DEFAULT 0,
+    max_attempts INT DEFAULT 5,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_phone_verification_user_created
+ON phone_verification_codes(user_id, created_at DESC);
+
+CREATE INDEX idx_phone_verification_expires
+ON phone_verification_codes(expires_at);
+
+-- =====================================================
 -- INTERESTS
 -- =====================================================
 
