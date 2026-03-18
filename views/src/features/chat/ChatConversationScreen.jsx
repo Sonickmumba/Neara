@@ -409,7 +409,7 @@ export function ChatConversationScreen() {
               <button
                 onClick={() =>
                   partnerId &&
-                  navigate('user-profile', {
+                  navigate('/homeFeed/user-profile', {
                     state: { selectedUserId: partnerId },
                   })
                 }
