@@ -72,6 +72,29 @@ CREATE INDEX idx_email_verification_email ON email_verification_codes(email);
 CREATE INDEX idx_email_verification_expires ON email_verification_codes(expires_at);
 
 -- =====================================================
+-- PHONE VERIFICATION CODES
+-- =====================================================
+
+CREATE TABLE phone_verification_codes (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    code_hash VARCHAR(128) NOT NULL,
+    attempts INT DEFAULT 0,
+    max_attempts INT DEFAULT 5,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_phone_verification_user_created
+ON phone_verification_codes(user_id, created_at DESC);
+
+CREATE INDEX idx_phone_verification_expires
+ON phone_verification_codes(expires_at);
+
+-- =====================================================
 -- INTERESTS
 -- =====================================================
 
@@ -127,6 +150,11 @@ CREATE INDEX idx_listings_created ON listings(created_at);
 CREATE TRIGGER trg_listings_updated
 BEFORE UPDATE ON listings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Run this SQL to migrate existing data
+ALTER TABLE listings ADD COLUMN image_urls JSON DEFAULT '[]'::json;
+UPDATE listings SET image_urls = CASE WHEN image_url IS NOT NULL AND image_url != '' THEN json_build_array(image_url) ELSE '[]'::json END;
+ALTER TABLE listings DROP COLUMN image_url;
 
 -- =====================================================
 -- CONVERSATIONS
@@ -257,8 +285,11 @@ CREATE TABLE notification_settings (
     user_id VARCHAR(36) PRIMARY KEY,
     push_enabled BOOLEAN DEFAULT TRUE,
     email_enabled BOOLEAN DEFAULT TRUE,
+    sms_enabled BOOLEAN DEFAULT FALSE,
     new_messages BOOLEAN DEFAULT TRUE,
     trade_updates BOOLEAN DEFAULT TRUE,
+    review_alerts BOOLEAN DEFAULT TRUE,
+    community_updates BOOLEAN DEFAULT FALSE,
     new_listings BOOLEAN DEFAULT TRUE,
     marketing BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -268,6 +299,25 @@ CREATE TABLE notification_settings (
 
 CREATE TRIGGER trg_notification_settings_updated
 BEFORE UPDATE ON notification_settings
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- =====================================================
+-- USER PRIVACY SETTINGS
+-- =====================================================
+
+CREATE TABLE user_privacy_settings (
+    user_id VARCHAR(36) PRIMARY KEY,
+    show_email BOOLEAN DEFAULT FALSE,
+    show_phone BOOLEAN DEFAULT FALSE,
+    show_location BOOLEAN DEFAULT TRUE,
+    public_profile BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TRIGGER trg_user_privacy_settings_updated
+BEFORE UPDATE ON user_privacy_settings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =====================================================

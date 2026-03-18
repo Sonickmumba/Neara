@@ -11,7 +11,7 @@ export function HomeHeader({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎉</span>
-            <h2>LocalLoop</h2>
+            <h2>Neara</h2>
           </div>
           <div className="flex items-center gap-2">
             <button

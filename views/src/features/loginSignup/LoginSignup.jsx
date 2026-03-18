@@ -106,7 +106,7 @@ export function LoginSignup() {
         setShowVerificationUI(true);
         // Don't navigate yet - wait for email verification
       } else {
-        await dispatch(
+        const user = await dispatch(
           loginUser({
             email: formData.email,
             password: formData.password,
@@ -114,7 +114,17 @@ export function LoginSignup() {
         ).unwrap();
 
         toast.success('Welcome back!');
-        navigate('/homeFeed');
+        if (user?.phone_verified) {
+          navigate('/homeFeed');
+        } else {
+          navigate('/verifyPhone', {
+            state: {
+              phone: user?.phone || '',
+              returnTo: '/homeFeed',
+              allowSkip: true,
+            },
+          });
+        }
       }
     } catch (err) {
       toast.error(err);
@@ -140,7 +150,10 @@ export function LoginSignup() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
       {/* Header */}
       <header className="px-6 py-4">
-        <button className="p-2 hover:bg-white rounded-lg transition-colors">
+        <button
+          onClick={() => navigate('/')}
+          className="p-2 hover:bg-white rounded-lg transition-colors"
+        >
           <ArrowLeft className="w-5 h-5" />
         </button>
       </header>
@@ -164,11 +177,21 @@ export function LoginSignup() {
                   })
                 )
                   .unwrap()
-                  .then(() => {
+                  .then((user) => {
                     toast.success('Account created!');
                     dispatch(resetEmailVerification());
                     setShowVerificationUI(false);
-                    navigate('/homeFeed');
+                    if (user?.phone_verified) {
+                      navigate('/homeFeed');
+                    } else {
+                      navigate('/verifyPhone', {
+                        state: {
+                          phone: user?.phone || '',
+                          returnTo: '/homeFeed',
+                          allowSkip: true,
+                        },
+                      });
+                    }
                   })
                   .catch((err) => {
                     // if the failure is because the user already exists,
@@ -184,11 +207,21 @@ export function LoginSignup() {
                         })
                       )
                         .unwrap()
-                        .then(() => {
+                        .then((user) => {
                           toast.success('Welcome back!');
                           dispatch(resetEmailVerification());
                           setShowVerificationUI(false);
-                          navigate('/homeFeed');
+                          if (user?.phone_verified) {
+                            navigate('/homeFeed');
+                          } else {
+                            navigate('/verifyPhone', {
+                              state: {
+                                phone: user?.phone || '',
+                                returnTo: '/homeFeed',
+                                allowSkip: true,
+                              },
+                            });
+                          }
                         })
                         .catch((loginErr) => {
                           toast.error(loginErr || 'Login failed');

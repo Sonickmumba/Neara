@@ -76,9 +76,7 @@ export function HomeFeed() {
             });
           } else if (notification.type === 'trade') {
             if (!refId) return;
-            navigate('trade-management', {
-              selectedTradeId: refId,
-            });
+            navigate(`trade-management/${refId}`);
           } else if (notification.type === 'listing') {
             if (!refId) return;
             navigate(`listing-details/${refId}`);

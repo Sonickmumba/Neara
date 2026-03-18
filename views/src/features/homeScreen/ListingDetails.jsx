@@ -336,7 +336,9 @@ export function ListingDetails() {
           <div className="mb-3 text-gray-600 font-medium">Posted by</div>
           <button
             onClick={() =>
-              navigate('user-profile', { selectedUserId: listing.user_id })
+              navigate('/homeFeed/user-profile', {
+                state: { selectedUserId: listing.user_id },
+              })
             }
             className="flex items-center gap-3 w-full p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
           >
@@ -360,7 +362,7 @@ export function ListingDetails() {
                 />
               </div>
               <div className="text-sm text-gray-600">
-                {listing.tradesCompleted || 0} trades completed • Member since{' '}
+                {listing.completedtrades || 0} trades completed • Member since{' '}
                 {formatMonthYear(listing.created_at)}
               </div>
             </div>

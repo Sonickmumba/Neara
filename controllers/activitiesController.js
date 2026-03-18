@@ -5,8 +5,10 @@ const { timeAgo } = require('../utils/helpers');
 exports.getRecentActivity = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const hours = parseInt(req.query.hours ?? 24, 10);
-    const limit = parseInt(req.query.limit ?? 20, 10);
+    const hours = Number.parseInt(req.query.hours ?? 24, 10) || 24;
+    const limit = Number.parseInt(req.query.limit ?? 20, 10) || 20;
+    const offset = Number.parseInt(req.query.offset ?? 0, 10) || 0;
+    const cappedLimit = Math.min(Math.max(limit, 1), 100);
 
     /* 1️⃣ Get user's location */
     const userResult = await pool.query(
@@ -48,7 +50,7 @@ exports.getRecentActivity = async (req, res, next) => {
               cos(radians(l.location_lng) - radians($2)) +
               sin(radians($1)) * sin(radians(l.location_lat))
             )
-          ) AS distance
+          ) AS distance_km
 
         FROM listings l
         JOIN users u ON l.user_id = u.id
@@ -61,11 +63,17 @@ exports.getRecentActivity = async (req, res, next) => {
       WHERE distance_km <= 10
       ORDER BY created_at DESC
       LIMIT $5
+      OFFSET $6
       `,
-      [userLat, userLng, userId, hours, limit]
+      [userLat, userLng, userId, hours, cappedLimit + 1, offset]
     );
 
-    const listings = listingsResult.rows.map((listing) => ({
+    const hasMore = listingsResult.rows.length > cappedLimit;
+    const pageRows = hasMore
+      ? listingsResult.rows.slice(0, cappedLimit)
+      : listingsResult.rows;
+
+    const listings = pageRows.map((listing) => ({
       ...listing,
       timeAgo: timeAgo(listing.created_at),
       distance: `${Number(listing.distance_km).toFixed(1)} km`,
@@ -74,6 +82,8 @@ exports.getRecentActivity = async (req, res, next) => {
     res.json({
       success: true,
       count: listings.length,
+      hasMore,
+      nextOffset: offset + listings.length,
       data: listings,
     });
   } catch (error) {

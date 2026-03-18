@@ -224,9 +224,8 @@ exports.updateTradeStatus = async (req, res, next) => {
       const updateQuery = `
         UPDATE trades 
         SET status = $1, 
-            updated_at = NOW(),
-            ${status === 'completed' ? 'completed_at = NOW(),' : ''}
-            cancelled_at = ${status === 'cancelled' ? 'NOW()' : 'cancelled_at'}
+            updated_at = NOW()
+            ${status === 'completed' ? ', completed_at = NOW()' : ''}
         WHERE id = $2
         RETURNING *
       `;

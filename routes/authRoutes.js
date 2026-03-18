@@ -13,10 +13,8 @@ require('../config/passport');
 
 const router = express.Router();
 
-// register user
-router.post('/register', authController.register);
+router.post('/register', validateRegister, authController.register);
 
-// user login
 router.post(
   '/login',
   validateLogin,
@@ -24,37 +22,19 @@ router.post(
   authController.login
 );
 
-// send verification email
 router.post(
   '/send-verification',
   validateSendVerificationEmail,
   authController.sendVerificationEmail
 );
 
-// verify email code
 router.post('/verify-email', validateVerifyEmail, authController.verifyEmail);
 
-// logout
-router.post('/logout', ensureAuth, authController.logout);
-
-module.exports = router;
-
-// verify email
-router.post(
-  '/verify-email',
-  [
-    body('email').isEmail().withMessage('Valid email is required'),
-    body('code').trim().notEmpty().withMessage('Verification code is required'),
-  ],
-  authController.verifyEmail
-);
+router.get('/me', ensureAuth, authController.getCurrentUser);
 
 router.get('/user/:id', ensureAuth, authController.getUserById);
 
-// get currrent user
-router.get('/me', ensureAuth, authController.getCurrentUser);
-
-router.post('/logout', authController.logout);
+router.post('/logout', ensureAuth, authController.logout);
 
 router.post(
   '/request-password-reset',
@@ -77,6 +57,24 @@ router.post(
   authController.resetPassword
 );
 
-router.post('/verify-email', authController.verifyEmail);
+router.post(
+  '/phone/send-code',
+  ensureAuth,
+  [body('phone').notEmpty().withMessage('Phone is required')],
+  authController.sendPhoneVerificationCode
+);
+
+router.post(
+  '/phone/verify-code',
+  ensureAuth,
+  [
+    body('phone').notEmpty().withMessage('Phone is required'),
+    body('code')
+      .trim()
+      .matches(/^\d{6}$/)
+      .withMessage('Code must be exactly 6 digits'),
+  ],
+  authController.verifyPhoneCode
+);
 
 module.exports = router;

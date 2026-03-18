@@ -33,7 +33,6 @@ export const verifyEmail = createAsyncThunk(
         email,
         code,
       });
-      console.log('Verify email response:', res.data);
       return res.data;
     } catch (err) {
       console.error('Verify email error:', err);
@@ -56,8 +55,6 @@ export const registerUser = createAsyncThunk(
       const state = getState();
       const interests = state.interests?.selectedCategoryIds || [];
       const coords = state.locationPermission?.coords || null;
-
-      console.log('Registration payload:', { formData, interests, coords });
 
       // 🧩 combine form data with interests (and location if needed)
       const payload = {
@@ -108,6 +105,37 @@ export const loginUser = createAsyncThunk(
   }
 );
 
+export const sendPhoneVerificationCode = createAsyncThunk(
+  'auth/sendPhoneVerificationCode',
+  async ({ phone }, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.post('/api/auth/phone/send-code', { phone });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to send phone verification code'
+      );
+    }
+  }
+);
+
+export const verifyPhoneCode = createAsyncThunk(
+  'auth/verifyPhoneCode',
+  async ({ phone, code }, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.post('/api/auth/phone/verify-code', {
+        phone,
+        code,
+      });
+      return res.data?.data?.user || null;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to verify phone code'
+      );
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
@@ -128,6 +156,10 @@ const authSlice = createSlice({
       state.emailVerificationStatus = 'idle';
       state.emailVerificationError = null;
       state.pendingEmail = null;
+    },
+    mergeUser(state, action) {
+      state.user = { ...(state.user || {}), ...(action.payload || {}) };
+      state.isAuthenticated = !!state.user;
     },
   },
   extraReducers: (builder) => {
@@ -188,9 +220,29 @@ const authSlice = createSlice({
       .addCase(verifyEmail.rejected, (state, action) => {
         state.emailVerificationStatus = 'failed';
         state.emailVerificationError = action.payload;
+      })
+
+      // send phone code
+      .addCase(sendPhoneVerificationCode.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(sendPhoneVerificationCode.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+
+      // verify phone code
+      .addCase(verifyPhoneCode.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(verifyPhoneCode.fulfilled, (state, action) => {
+        state.user = { ...(state.user || {}), ...(action.payload || {}) };
+        state.isAuthenticated = !!state.user;
+      })
+      .addCase(verifyPhoneCode.rejected, (state, action) => {
+        state.error = action.payload;
       });
   },
 });
 
-export const { logout, resetEmailVerification } = authSlice.actions;
+export const { logout, resetEmailVerification, mergeUser } = authSlice.actions;
 export default authSlice.reducer;

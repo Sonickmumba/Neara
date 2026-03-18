@@ -22,8 +22,14 @@ import { CreateListing } from './components/CreateListing';
 import { HomeSearchResult } from './features/homeScreen/components/HomeSearchResult';
 import { ChatConversationScreen } from './features/chat/ChatConversationScreen';
 import { MessageListScreen } from './features/chat/MessageListScreen';
+import { TradeNegotiation } from './features/trade/TradeNegotiation';
+import { TradeManagementScreen } from './features/trade/TradeManagement';
+import { ReviewRating } from './features/trade/ReviewRating';
+import { UserProfileScreen } from './features/user/UserProfile';
+import { UserSettingsScreen } from './features/user/UserSettings';
 
 import { RequireAuth } from './components/RequireAuth';
+import { RequirePhoneVerified } from './components/RequirePhoneVerified';
 import { setupAuthInterceptor } from './services/api';
 import { Toaster } from 'sonner';
 
@@ -64,7 +70,9 @@ function App() {
               path="chat-list"
               element={
                 <RequireAuth>
-                  <MessageListScreen />
+                  <RequirePhoneVerified>
+                    <MessageListScreen />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />
@@ -72,13 +80,57 @@ function App() {
               path="chat-conversation/:conversationId"
               element={
                 <RequireAuth>
-                  <ChatConversationScreen />
+                  <RequirePhoneVerified>
+                    <ChatConversationScreen />
+                  </RequirePhoneVerified>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="trade-negotiation"
+              element={
+                <RequireAuth>
+                  <RequirePhoneVerified>
+                    <TradeNegotiation />
+                  </RequirePhoneVerified>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="trade-management/:tradeId"
+              element={
+                <RequireAuth>
+                  <RequirePhoneVerified>
+                    <TradeManagementScreen />
+                  </RequirePhoneVerified>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="review-rating/:tradeId"
+              element={
+                <RequireAuth>
+                  <RequirePhoneVerified>
+                    <ReviewRating />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />
             <Route
               path="user-profile"
-              element={<div className="p-6">User profile coming soon!</div>}
+              element={
+                <RequireAuth>
+                  <UserProfileScreen />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <RequireAuth>
+                  <UserSettingsScreen />
+                </RequireAuth>
+              }
             />
             <Route
               path="notifications"
@@ -90,9 +142,11 @@ function App() {
               path="create-listing"
               element={
                 <RequireAuth>
-                  <CreateListing
-                    navigate={(path, state) => navigate(path, { state })}
-                  />
+                  <RequirePhoneVerified>
+                    <CreateListing
+                      navigate={(path, state) => navigate(path, { state })}
+                    />
+                  </RequirePhoneVerified>
                 </RequireAuth>
               }
             />

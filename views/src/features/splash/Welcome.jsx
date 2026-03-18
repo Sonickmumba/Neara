@@ -11,7 +11,7 @@ const FEATURES = [
   {
     icon: Heart,
     title: 'Trade Skills & Goods',
-    description: 'Share what you have, get what you need - no money required',
+    description: 'Share what you have, get what you need - money or no money required',
     color: 'red'
   },
   {
