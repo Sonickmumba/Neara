@@ -15,7 +15,7 @@ if (accountSid && authToken && fromNumber) {
   }
 } else {
   console.warn(
-    '⚠️  Twilio SMS service not configured. Using dev fallback mode.'
+    '⚠️  Twilio SMS service not configured. Using fallback mode (allowed outside production).'
   );
 }
 
