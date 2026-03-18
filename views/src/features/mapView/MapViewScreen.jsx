@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -20,6 +21,15 @@ const MAP_PADDING_PERCENT = 8;
 const DEFAULT_ZOOM_LEVEL = 14;
 const MIN_ZOOM_LEVEL = 10;
 const MAX_ZOOM_LEVEL = 20;
+const FETCH_DEBOUNCE_MS = 220;
+
+const getClusterCellPercent = (zoomLevel) => {
+  if (zoomLevel >= 19) return 2.5;
+  if (zoomLevel >= 17) return 3.5;
+  if (zoomLevel >= 15) return 5;
+  if (zoomLevel >= 13) return 7;
+  return 9;
+};
 
 const avatarFromName = (name) =>
   String(name || 'U')
@@ -35,8 +45,35 @@ const toNumberOrNull = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const getViewportBounds = (center, zoomLevel) => {
+  if (center?.lat == null || center?.lng == null) return null;
+
+  const zoomFactor = Math.pow(2, (zoomLevel - MIN_ZOOM_LEVEL) * 0.5);
+  const latDelta = Math.max(0.12, 8 / zoomFactor);
+  const lngDelta = Math.max(
+    0.12,
+    latDelta / Math.max(Math.cos((center.lat * Math.PI) / 180), 0.2)
+  );
+
+  const minLat = Math.max(-90, center.lat - latDelta / 2);
+  const maxLat = Math.min(90, center.lat + latDelta / 2);
+  const minLng = Math.max(-180, center.lng - lngDelta / 2);
+  const maxLng = Math.min(180, center.lng + lngDelta / 2);
+
+  return {
+    minLat,
+    maxLat,
+    minLng,
+    maxLng,
+  };
+};
+
 export function MapViewScreen() {
   const navigate = useNavigate();
+  const authUser = useSelector((state) => state.auth.user);
+  const permissionCoords = useSelector(
+    (state) => state.locationPermission.coords
+  );
 
   const [listings, setListings] = useState([]);
   const [status, setStatus] = useState('idle');
@@ -49,38 +86,75 @@ export function MapViewScreen() {
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_ZOOM_LEVEL);
   const [isLocating, setIsLocating] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
+  const [mapCenter, setMapCenter] = useState(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
   const requestSeqRef = useRef(0);
 
-  const fetchMapListings = useCallback(async ({ lat, lng } = {}) => {
-    const requestId = ++requestSeqRef.current;
+  const storedUserLocation = useMemo(() => {
+    const userLat = toNumberOrNull(authUser?.location_lat);
+    const userLng = toNumberOrNull(authUser?.location_lng);
 
-    try {
-      setStatus('loading');
-      setError(null);
-
-      const response = await apiClient.get('/api/listings', {
-        params: {
-          status: 'active',
-          limit: 120,
-          page: 1,
-          ...(lat != null && lng != null ? { lat, lng, radius: 35 } : {}),
-        },
-      });
-
-      if (requestId !== requestSeqRef.current) return;
-
-      const rows = Array.isArray(response.data?.data) ? response.data.data : [];
-      setListings(rows);
-      setStatus('succeeded');
-      setLastUpdatedAt(new Date());
-    } catch (err) {
-      if (requestId !== requestSeqRef.current) return;
-      setStatus('failed');
-      setError(err.response?.data?.message || 'Failed to load map listings');
+    if (userLat !== null && userLng !== null) {
+      return { lat: userLat, lng: userLng };
     }
-  }, []);
+
+    const permissionLat = toNumberOrNull(permissionCoords?.latitude);
+    const permissionLng = toNumberOrNull(permissionCoords?.longitude);
+
+    if (permissionLat !== null && permissionLng !== null) {
+      return { lat: permissionLat, lng: permissionLng };
+    }
+
+    return null;
+  }, [
+    authUser?.location_lat,
+    authUser?.location_lng,
+    permissionCoords?.latitude,
+    permissionCoords?.longitude,
+  ]);
+
+  const effectiveCenter = mapCenter || storedUserLocation;
+  const effectiveUserLocation = userLocation || storedUserLocation;
+
+  const fetchMapListings = useCallback(
+    async ({ lat, lng } = {}) => {
+      const requestId = ++requestSeqRef.current;
+      const bounds = getViewportBounds(
+        lat != null && lng != null ? { lat, lng } : effectiveCenter,
+        zoomLevel
+      );
+
+      try {
+        setStatus('loading');
+        setError(null);
+
+        const response = await apiClient.get('/api/listings', {
+          params: {
+            status: 'active',
+            limit: 80,
+            page: 1,
+            ...(lat != null && lng != null ? { lat, lng } : {}),
+            ...(bounds || {}),
+          },
+        });
+
+        if (requestId !== requestSeqRef.current) return;
+
+        const rows = Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+        setListings(rows);
+        setStatus('succeeded');
+        setLastUpdatedAt(new Date());
+      } catch (err) {
+        if (requestId !== requestSeqRef.current) return;
+        setStatus('failed');
+        setError(err.response?.data?.message || 'Failed to load map listings');
+      }
+    },
+    [effectiveCenter, zoomLevel]
+  );
 
   const handleLocateMe = useCallback(() => {
     if (!navigator.geolocation) {
@@ -103,6 +177,7 @@ export function MapViewScreen() {
         }
 
         setUserLocation({ lat, lng });
+        setMapCenter({ lat, lng });
         void fetchMapListings({ lat, lng }).finally(() => {
           setIsLocating(false);
         });
@@ -126,14 +201,18 @@ export function MapViewScreen() {
   }, [fetchMapListings]);
 
   useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      void fetchMapListings();
-    });
+    const timeoutId = window.setTimeout(() => {
+      void fetchMapListings(
+        effectiveCenter?.lat != null && effectiveCenter?.lng != null
+          ? { lat: effectiveCenter.lat, lng: effectiveCenter.lng }
+          : {}
+      );
+    }, FETCH_DEBOUNCE_MS);
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
     };
-  }, [fetchMapListings]);
+  }, [fetchMapListings, effectiveCenter, zoomLevel]);
 
   const filteredListings = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -198,15 +277,11 @@ export function MapViewScreen() {
     const minLng = Math.min(...lngs);
     const maxLng = Math.max(...lngs);
 
-    const hasUserLocation =
-      userLocation?.lat != null && userLocation?.lng != null;
+    const hasCenter =
+      effectiveCenter?.lat != null && effectiveCenter?.lng != null;
 
-    const centerLat = hasUserLocation
-      ? userLocation.lat
-      : (minLat + maxLat) / 2;
-    const centerLng = hasUserLocation
-      ? userLocation.lng
-      : (minLng + maxLng) / 2;
+    const centerLat = hasCenter ? effectiveCenter.lat : (minLat + maxLat) / 2;
+    const centerLng = hasCenter ? effectiveCenter.lng : (minLng + maxLng) / 2;
 
     const baseLatSpan = Math.max(maxLat - minLat, 0.0015);
     const baseLngSpan = Math.max(maxLng - minLng, 0.0015);
@@ -233,7 +308,78 @@ export function MapViewScreen() {
         yPercent,
       };
     });
-  }, [filteredListings, userLocation, zoomLevel]);
+  }, [filteredListings, effectiveCenter, zoomLevel]);
+
+  const mapEntities = useMemo(() => {
+    if (!markerPoints.length) return [];
+
+    const cellSizePercent = getClusterCellPercent(zoomLevel);
+    const buckets = new Map();
+
+    markerPoints.forEach((point) => {
+      const xIndex = Math.floor(point.xPercent / cellSizePercent);
+      const yIndex = Math.floor(point.yPercent / cellSizePercent);
+      const key = `${xIndex}:${yIndex}`;
+
+      if (!buckets.has(key)) {
+        buckets.set(key, []);
+      }
+
+      buckets.get(key).push(point);
+    });
+
+    return [...buckets.entries()].map(([key, bucket]) => {
+      if (bucket.length === 1) {
+        return {
+          type: 'listing',
+          key: bucket[0].listing.id,
+          point: bucket[0],
+        };
+      }
+
+      const sum = bucket.reduce(
+        (acc, point) => {
+          acc.x += point.xPercent;
+          acc.y += point.yPercent;
+          acc.lat += point.lat;
+          acc.lng += point.lng;
+          return acc;
+        },
+        { x: 0, y: 0, lat: 0, lng: 0 }
+      );
+
+      return {
+        type: 'cluster',
+        key: `cluster-${key}`,
+        count: bucket.length,
+        xPercent: sum.x / bucket.length,
+        yPercent: sum.y / bucket.length,
+        lat: sum.lat / bucket.length,
+        lng: sum.lng / bucket.length,
+      };
+    });
+  }, [markerPoints, zoomLevel]);
+
+  const clusterStats = useMemo(() => {
+    return mapEntities.reduce(
+      (acc, entity) => {
+        if (entity.type === 'cluster') {
+          acc.clusters += 1;
+        } else {
+          acc.pins += 1;
+        }
+
+        return acc;
+      },
+      { clusters: 0, pins: 0 }
+    );
+  }, [mapEntities]);
+
+  const handleClusterClick = useCallback((cluster) => {
+    setSelectedListingId(null);
+    setMapCenter({ lat: cluster.lat, lng: cluster.lng });
+    setZoomLevel((prev) => Math.min(MAX_ZOOM_LEVEL, prev + 2));
+  }, []);
 
   const totals = useMemo(() => {
     const offerCount = listings.filter((item) => item.type === 'offer').length;
@@ -336,8 +482,8 @@ export function MapViewScreen() {
                 type="button"
                 onClick={() =>
                   fetchMapListings(
-                    userLocation?.lat != null && userLocation?.lng != null
-                      ? { lat: userLocation.lat, lng: userLocation.lng }
+                    effectiveCenter?.lat != null && effectiveCenter?.lng != null
+                      ? { lat: effectiveCenter.lat, lng: effectiveCenter.lng }
                       : {}
                   )
                 }
@@ -348,12 +494,33 @@ export function MapViewScreen() {
             </div>
           </div>
         ) : (
-          markerPoints.map((point) => {
+          mapEntities.map((entity) => {
+            if (entity.type === 'cluster') {
+              return (
+                <button
+                  key={entity.key}
+                  type="button"
+                  onClick={() => handleClusterClick(entity)}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 z-20"
+                  style={{
+                    left: `${entity.xPercent}%`,
+                    top: `${entity.yPercent}%`,
+                  }}
+                  aria-label={`Cluster of ${entity.count} listings`}
+                >
+                  <div className="h-11 min-w-11 px-3 rounded-full border-2 border-white shadow-md text-xs font-bold text-white flex items-center justify-center bg-blue-600 ring-2 ring-blue-200">
+                    {entity.count}
+                  </div>
+                </button>
+              );
+            }
+
+            const point = entity.point;
             const isSelected = selectedListingId === point.listing.id;
 
             return (
               <button
-                key={point.listing.id}
+                key={entity.key}
                 type="button"
                 onClick={() =>
                   setSelectedListingId((prev) =>
@@ -361,7 +528,7 @@ export function MapViewScreen() {
                   )
                 }
                 className={`absolute -translate-x-1/2 -translate-y-1/2 transition-all ${
-                  isSelected ? 'z-20 scale-110' : 'z-10'
+                  isSelected ? 'z-30 scale-110' : 'z-10'
                 }`}
                 style={{
                   left: `${point.xPercent}%`,
@@ -421,7 +588,7 @@ export function MapViewScreen() {
           )}
         </button>
 
-        {userLocation && (
+        {effectiveUserLocation && (
           <div
             className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
             style={{ left: '50%', top: '50%' }}
@@ -438,7 +605,8 @@ export function MapViewScreen() {
             {filteredListings.length} listings shown
           </p>
           <p className="text-xs text-gray-500">
-            Zoom: {zoomLevel} • Updated{' '}
+            Zoom: {zoomLevel} • Pins: {clusterStats.pins} • Clusters:{' '}
+            {clusterStats.clusters} • Updated{' '}
             {lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString() : 'just now'}
           </p>
         </div>

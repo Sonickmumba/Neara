@@ -153,6 +153,26 @@ io.on('connection', (socket) => {
     if (ack) ack(true);
   });
 
+  // Handle typing indicator
+  socket.on('user_typing', (conversationId, userData) => {
+    if (!conversationId || !userData) return;
+
+    // Broadcast to all users in the conversation except the sender
+    socket.to(conversationId).emit('user_typing', {
+      userId: userData.userId,
+      userName: userData.userName,
+      timestamp: Date.now(),
+    });
+  });
+
+  // Handle stopped typing indicator
+  socket.on('user_stopped_typing', (conversationId, userId) => {
+    if (!conversationId || !userId) return;
+
+    // Broadcast to all users in the conversation except the sender
+    socket.to(conversationId).emit('user_stopped_typing', { userId });
+  });
+
   socket.on('disconnect', () => {
     console.log('🔴 Socket disconnected:', socket.id);
   });
