@@ -200,18 +200,16 @@ export function NotificationsPanel({
 
   const deleteNotification = useCallback(
     async (id, isUnread) => {
-      let deleted = false;
-
       // Optimistic update
       setNotifications((prev) => {
-        const filtered = prev.filter((notif) => notif.id !== id);
-        deleted = filtered.length < prev.length;
-        return filtered;
-      });
+        const existed = prev.some((notif) => notif.id === id);
 
-      if (deleted && isUnread) {
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      }
+        if (existed && isUnread) {
+          setUnreadCount((prevUnread) => Math.max(0, prevUnread - 1));
+        }
+
+        return prev.filter((notif) => notif.id !== id);
+      });
 
       try {
         await apiClient.delete(`/api/notifications/${id}`);
