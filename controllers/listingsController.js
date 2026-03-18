@@ -834,7 +834,7 @@ exports.getAllListings = async (req, res, next) => {
     /* ---------------------------
        Pagination safety
     ---------------------------- */
-    const safeLimit = Math.min(Number(limit) || 20, 120);
+    const safeLimit = Math.min(Number(limit) || 20, 50);
     const offset = (Number(page) - 1) * safeLimit;
 
     /* ---------------------------
