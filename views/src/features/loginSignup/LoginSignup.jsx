@@ -150,7 +150,10 @@ export function LoginSignup() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
       {/* Header */}
       <header className="px-6 py-4">
-        <button className="p-2 hover:bg-white rounded-lg transition-colors">
+        <button
+          onClick={() => navigate('/')}
+          className="p-2 hover:bg-white rounded-lg transition-colors"
+        >
           <ArrowLeft className="w-5 h-5" />
         </button>
       </header>
