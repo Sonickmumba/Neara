@@ -57,7 +57,7 @@ export function ChatConversationScreen() {
   const currentUser = useSelector((state) => state.auth.user);
 
   const [messageText, setMessageText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState(new Map()); // Track multiple typing users
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -68,6 +68,9 @@ export function ChatConversationScreen() {
   const messagesEndRef = useRef(null);
   const messagesListRef = useRef(null);
   const restoreScrollRef = useRef(null);
+  const socketRef = useRef(null); // Socket reference for emit operations
+  const typingTimeoutsRef = useRef(new Map()); // Track timeouts for each user
+  const typingDebounceRef = useRef(null); // Debounce typing emit
 
   const [messages, setMessages] = useState([]);
 
@@ -114,6 +117,15 @@ export function ChatConversationScreen() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [normalizedMessages.length]);
+
+  // Cleanup typing debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (typingDebounceRef.current) {
+        clearTimeout(typingDebounceRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!restoreScrollRef.current || !messagesListRef.current) return;
@@ -266,6 +278,8 @@ export function ChatConversationScreen() {
       timeout: 10000,
     });
 
+    socketRef.current = socket;
+
     socket.on('connect', () => {
       setIsConnected(true);
       socket.emit('join-conversation', conversationId);
@@ -273,7 +287,7 @@ export function ChatConversationScreen() {
 
     socket.on('disconnect', () => {
       setIsConnected(false);
-      setIsTyping(false);
+      setTypingUsers(new Map());
     });
 
     socket.on('new_message', (incomingMessage) => {
@@ -311,15 +325,84 @@ export function ChatConversationScreen() {
       });
     });
 
+    // Handle user typing
+    socket.on('user_typing', (data) => {
+      const { userId, userName } = data;
+
+      // Clear existing timeout for this user
+      if (typingTimeoutsRef.current.has(userId)) {
+        clearTimeout(typingTimeoutsRef.current.get(userId));
+      }
+
+      // Set typing user
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        next.set(userId, userName);
+        return next;
+      });
+
+      // Set timeout to remove typing indicator after 3 seconds of inactivity
+      const timeout = setTimeout(() => {
+        setTypingUsers((prev) => {
+          const next = new Map(prev);
+          next.delete(userId);
+          return next;
+        });
+        typingTimeoutsRef.current.delete(userId);
+      }, 3000);
+
+      typingTimeoutsRef.current.set(userId, timeout);
+    });
+
+    // Handle user stopped typing
+    socket.on('user_stopped_typing', (data) => {
+      const { userId } = data;
+
+      // Clear timeout
+      if (typingTimeoutsRef.current.has(userId)) {
+        clearTimeout(typingTimeoutsRef.current.get(userId));
+        typingTimeoutsRef.current.delete(userId);
+      }
+
+      // Remove typing user
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        next.delete(userId);
+        return next;
+      });
+    });
+
     return () => {
+      // Cleanup: clear all typing timeouts
+      typingTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+      typingTimeoutsRef.current.clear();
+
       socket.off('new_message');
+      socket.off('user_typing');
+      socket.off('user_stopped_typing');
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [conversationId, currentUser?.id]);
 
   const handleSend = async () => {
     const trimmed = messageText.trim();
     if (!trimmed || !conversationId || isSending) return;
+
+    // Emit stopped typing when sending
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit(
+        'user_stopped_typing',
+        conversationId,
+        currentUser?.id
+      );
+    }
+
+    // Clear typing debounce
+    if (typingDebounceRef.current) {
+      clearTimeout(typingDebounceRef.current);
+      typingDebounceRef.current = null;
+    }
 
     const optimisticId = `temp-${Date.now()}`;
     const optimistic = {
@@ -532,25 +615,34 @@ export function ChatConversationScreen() {
         })}
 
         {/* Typing Indicator */}
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="w-8 mr-2 flex-shrink-0"></div>
-            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 rounded-bl-sm">
-              <div className="flex gap-1">
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '0ms' }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '150ms' }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '300ms' }}
-                ></div>
+        {typingUsers.size > 0 && (
+          <div className="flex flex-col gap-2">
+            {Array.from(typingUsers.entries()).map(([userId, userName]) => (
+              <div key={userId} className="flex justify-start">
+                <div className="w-8 mr-2 flex-shrink-0"></div>
+                <div className="flex flex-col gap-1">
+                  <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 rounded-bl-sm">
+                    <div className="flex gap-1">
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      ></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '150ms' }}
+                      ></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '300ms' }}
+                      ></div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500 ml-4">
+                    {userName} is typing...
+                  </span>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         )}
 
@@ -607,7 +699,38 @@ export function ChatConversationScreen() {
           <div className="flex-1 bg-gray-100 rounded-3xl px-4 py-2">
             <textarea
               value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
+              onChange={(e) => {
+                setMessageText(e.target.value);
+
+                // Emit typing indicator with debouncing
+                if (typingDebounceRef.current) {
+                  clearTimeout(typingDebounceRef.current);
+                }
+
+                if (
+                  e.target.value.trim() &&
+                  socketRef.current &&
+                  socketRef.current.connected
+                ) {
+                  // Emit typing event
+                  socketRef.current.emit('user_typing', conversationId, {
+                    userId: currentUser?.id,
+                    userName: currentUser?.name || 'User',
+                  });
+
+                  // Debounce stop typing emission (emit stop typing after 2 seconds of inactivity)
+                  typingDebounceRef.current = setTimeout(() => {
+                    if (socketRef.current && socketRef.current.connected) {
+                      socketRef.current.emit(
+                        'user_stopped_typing',
+                        conversationId,
+                        currentUser?.id
+                      );
+                    }
+                    typingDebounceRef.current = null;
+                  }, 2000);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

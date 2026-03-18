@@ -4,6 +4,7 @@ const ensureAuth = require('../middleware/auth');
 const {
   validateCreateConversation,
   validateSendMessage,
+  validateConversationId,
 } = require('../middleware/validation');
 
 const router = express.Router();
@@ -32,6 +33,13 @@ router.post(
   '/:conversationId/messages',
   validateSendMessage,
   conversationsController.sendMessage
+);
+
+// Delete conversation
+router.delete(
+  '/:conversationId',
+  validateConversationId,
+  conversationsController.deleteConversation
 );
 
 module.exports = router;

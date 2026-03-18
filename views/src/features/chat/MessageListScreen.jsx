@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Pin } from 'lucide-react';
+import { ArrowLeft, Search, Pin, Trash2 } from 'lucide-react';
 
 import apiClient from '../../services/api';
 import { ReputationBadge } from '../../components/ReputableBadge';
 
 const PAGE_SIZE = 20;
+const SWIPE_ACTION_WIDTH = 88;
+const SWIPE_OPEN_THRESHOLD = 52;
+const SWIPE_START_THRESHOLD = 10;
 
 function initialsFromName(name) {
   return (name || 'U')
@@ -21,6 +24,9 @@ export function MessageListScreen() {
   const navigate = useNavigate();
   const listRef = useRef(null);
   const requestSeqRef = useRef(0);
+  const dragStateRef = useRef(null);
+  const rafRef = useRef(null);
+  const suppressClickRef = useRef(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -32,6 +38,9 @@ export function MessageListScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [swipedChatId, setSwipedChatId] = useState(null);
+  const [draggingChatId, setDraggingChatId] = useState(null);
+  const [dragOffset, setDragOffset] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -111,14 +120,126 @@ export function MessageListScreen() {
     const el = listRef.current;
     if (!el || isLoadingMore || !hasMore || !nextCursor) return;
 
+    if (swipedChatId) {
+      setSwipedChatId(null);
+    }
+
     const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 200;
     if (nearBottom) {
       fetchConversations({ append: true, cursor: nextCursor });
     }
   };
 
+  const flushDragOffset = useCallback((nextOffset) => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
+    rafRef.current = requestAnimationFrame(() => {
+      setDragOffset(nextOffset);
+      rafRef.current = null;
+    });
+  }, []);
+
+  const latestDragOffsetRef = useRef(0);
+
+  const startSwipe = useCallback(
+    (chatId, startX) => {
+      const baseOffset = swipedChatId === chatId ? -SWIPE_ACTION_WIDTH : 0;
+      dragStateRef.current = {
+        chatId,
+        startX,
+        baseOffset,
+        moved: false,
+      };
+      latestDragOffsetRef.current = baseOffset;
+      setDraggingChatId(chatId);
+      setDragOffset(baseOffset);
+    },
+    [swipedChatId]
+  );
+
+  const moveSwipe = useCallback(
+    (currentX) => {
+      const drag = dragStateRef.current;
+      if (!drag) return;
+
+      const deltaX = currentX - drag.startX;
+      if (Math.abs(deltaX) > SWIPE_START_THRESHOLD) {
+        drag.moved = true;
+      }
+
+      if (!drag.moved) return;
+
+      const nextOffset = Math.max(
+        -SWIPE_ACTION_WIDTH,
+        Math.min(0, drag.baseOffset + deltaX)
+      );
+
+      latestDragOffsetRef.current = nextOffset;
+      flushDragOffset(nextOffset);
+    },
+    [flushDragOffset]
+  );
+
+  const endSwipe = useCallback(() => {
+    const drag = dragStateRef.current;
+    if (!drag) return;
+
+    const offset = latestDragOffsetRef.current;
+    const shouldOpen = offset <= -SWIPE_OPEN_THRESHOLD;
+    setSwipedChatId(shouldOpen ? drag.chatId : null);
+    setDraggingChatId(null);
+    setDragOffset(0);
+    latestDragOffsetRef.current = 0;
+
+    if (drag.moved) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+
+    dragStateRef.current = null;
+  }, []);
+
+  const handleDeleteConversation = useCallback(
+    async (chat) => {
+      if (!chat?.id) return;
+
+      const unread = Number(chat.unread_count || 0);
+      const hasActiveTrade = !!chat.has_active_trade;
+
+      setConversations((prev) => prev.filter((item) => item.id !== chat.id));
+      setCounts((prev) => ({
+        all: Math.max(0, Number(prev.all || 0) - 1),
+        unread: Math.max(0, Number(prev.unread || 0) - unread),
+        activeTrades: Math.max(
+          0,
+          Number(prev.activeTrades || 0) - (hasActiveTrade ? 1 : 0)
+        ),
+      }));
+      setSwipedChatId((prev) => (prev === chat.id ? null : prev));
+
+      try {
+        await apiClient.delete(`/api/conversations/${chat.id}`);
+      } catch (err) {
+        console.error('Failed to delete conversation:', err);
+        fetchConversations();
+      }
+    },
+    [fetchConversations]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
   const filteredChats = useMemo(() => {
-    return conversations.sort((a, b) => {
+    return [...conversations].sort((a, b) => {
       if (a.is_pinned && !b.is_pinned) return -1;
       if (!a.is_pinned && b.is_pinned) return 1;
       return 0;
@@ -237,80 +358,120 @@ export function MessageListScreen() {
           onScroll={handleScroll}
           className="divide-y divide-gray-200 overflow-y-auto max-h-[calc(100vh-240px)]"
         >
-          {filteredChats.map((chat) => (
-            <div key={chat.id} className="bg-white">
-              <button
-                onClick={() =>
-                  navigate(`/homeFeed/chat-conversation/${chat.id}`)
-                }
-                className="w-full hover:bg-gray-50 transition-colors px-4 py-4 flex items-start gap-3"
+          {filteredChats.map((chat) => {
+            const isDragging = draggingChatId === chat.id;
+            const isOpen = swipedChatId === chat.id;
+            const offset = isDragging
+              ? dragOffset
+              : isOpen
+                ? -SWIPE_ACTION_WIDTH
+                : 0;
+
+            return (
+              <div
+                key={chat.id}
+                className="relative bg-white overflow-hidden touch-pan-y"
               >
-                {/* Avatar with online indicator */}
-                <div className="relative flex-shrink-0">
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-                    {initialsFromName(chat.partner_name)}
-                  </div>
-                  {Number(chat.unread_count) > 0 && (
-                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white">
-                      {chat.unread_count}
-                    </div>
-                  )}
+                <div className="absolute inset-y-0 right-0 w-[88px] bg-red-600 flex items-center justify-center">
+                  <button
+                    onClick={() => void handleDeleteConversation(chat)}
+                    className="h-full w-full flex flex-col items-center justify-center text-white"
+                    aria-label="Delete conversation"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span className="text-xs mt-1">Delete</span>
+                  </button>
                 </div>
 
-                <div className="flex-1 min-w-0 text-left">
-                  {/* Name and Time */}
-                  <div className="flex items-center justify-between mb-1 gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`font-medium truncate ${Number(chat.unread_count) > 0 ? 'text-gray-900' : 'text-gray-700'}`}
-                      >
-                        {chat.partner_name}
-                      </span>
-                      <ReputationBadge
-                        rating={chat.partner_rating}
-                        isVerified={chat.partner_is_verified}
-                        totalRatings={chat.partner_total_ratings}
-                        size="sm"
-                      />
-                      {chat.is_pinned && (
-                        <Pin
-                          className="w-3.5 h-3.5 text-blue-600 flex-shrink-0"
-                          fill="currentColor"
-                        />
-                      )}
+                <button
+                  onTouchStart={(event) => {
+                    if (event.touches.length !== 1) return;
+                    startSwipe(chat.id, event.touches[0].clientX);
+                  }}
+                  onTouchMove={(event) => {
+                    if (event.touches.length !== 1) return;
+                    moveSwipe(event.touches[0].clientX);
+                  }}
+                  onTouchEnd={endSwipe}
+                  onTouchCancel={endSwipe}
+                  onClick={() => {
+                    if (suppressClickRef.current) return;
+                    if (swipedChatId === chat.id) {
+                      setSwipedChatId(null);
+                      return;
+                    }
+                    navigate(`/homeFeed/chat-conversation/${chat.id}`);
+                  }}
+                  className="relative z-10 w-full hover:bg-gray-50 transition-transform duration-150 px-4 py-4 flex items-start gap-3 bg-white"
+                  style={{ transform: `translateX(${offset}px)` }}
+                >
+                  {/* Avatar with online indicator */}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
+                      {initialsFromName(chat.partner_name)}
                     </div>
-                    <span className="text-xs text-gray-500 flex-shrink-0">
-                      {chat.timeAgo}
-                    </span>
-                  </div>
-
-                  {/* Last Message */}
-                  <div
-                    className={`text-sm mb-1 truncate ${
-                      Number(chat.unread_count) > 0
-                        ? 'text-gray-900 font-medium'
-                        : 'text-gray-600'
-                    }`}
-                  >
-                    {chat.last_message || 'No messages yet'}
-                  </div>
-
-                  {/* Listing Reference and Status */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-500">
-                      Re: {chat.listing_title}
-                    </span>
-                    {!!chat.has_active_trade && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                        <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
-                        Active Trade
-                      </span>
+                    {Number(chat.unread_count) > 0 && (
+                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white">
+                        {chat.unread_count}
+                      </div>
                     )}
                   </div>
-                </div>
-              </button>
-            </div>
-          ))}
+
+                  <div className="flex-1 min-w-0 text-left">
+                    {/* Name and Time */}
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`font-medium truncate ${Number(chat.unread_count) > 0 ? 'text-gray-900' : 'text-gray-700'}`}
+                        >
+                          {chat.partner_name}
+                        </span>
+                        <ReputationBadge
+                          rating={chat.partner_rating}
+                          isVerified={chat.partner_is_verified}
+                          totalRatings={chat.partner_total_ratings}
+                          size="sm"
+                        />
+                        {chat.is_pinned && (
+                          <Pin
+                            className="w-3.5 h-3.5 text-blue-600 flex-shrink-0"
+                            fill="currentColor"
+                          />
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500 flex-shrink-0">
+                        {chat.timeAgo}
+                      </span>
+                    </div>
+
+                    {/* Last Message */}
+                    <div
+                      className={`text-sm mb-1 truncate ${
+                        Number(chat.unread_count) > 0
+                          ? 'text-gray-900 font-medium'
+                          : 'text-gray-600'
+                      }`}
+                    >
+                      {chat.last_message || 'No messages yet'}
+                    </div>
+
+                    {/* Listing Reference and Status */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-gray-500">
+                        Re: {chat.listing_title}
+                      </span>
+                      {!!chat.has_active_trade && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                          <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+                          Active Trade
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            );
+          })}
           {isLoadingMore && (
             <div className="py-4 text-center text-sm text-gray-500">
               Loading more conversations...

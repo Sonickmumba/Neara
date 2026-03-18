@@ -823,6 +823,10 @@ exports.getAllListings = async (req, res, next) => {
       lat,
       lng,
       radius,
+      minLat,
+      maxLat,
+      minLng,
+      maxLng,
       page = 1,
       limit = 20,
     } = req.query;
@@ -848,6 +852,34 @@ exports.getAllListings = async (req, res, next) => {
     ---------------------------- */
     let distanceSelect = 'NULL::double precision AS distance';
     let distanceWhere = '';
+    let boundsWhere = '';
+
+    const parsedMinLat = Number(minLat);
+    const parsedMaxLat = Number(maxLat);
+    const parsedMinLng = Number(minLng);
+    const parsedMaxLng = Number(maxLng);
+    const hasViewportBounds = [
+      parsedMinLat,
+      parsedMaxLat,
+      parsedMinLng,
+      parsedMaxLng,
+    ].every(Number.isFinite);
+
+    if (hasViewportBounds) {
+      const south = Math.max(-90, Math.min(parsedMinLat, parsedMaxLat));
+      const north = Math.min(90, Math.max(parsedMinLat, parsedMaxLat));
+      const west = Math.max(-180, Math.min(parsedMinLng, parsedMaxLng));
+      const east = Math.min(180, Math.max(parsedMinLng, parsedMaxLng));
+
+      boundsWhere = `
+        AND l.location_lat IS NOT NULL
+        AND l.location_lng IS NOT NULL
+        AND l.location_lat BETWEEN $${idx++} AND $${idx++}
+        AND l.location_lng BETWEEN $${idx++} AND $${idx++}
+      `;
+
+      params.push(south, north, west, east);
+    }
 
     if (refLat != null && refLng != null) {
       distanceSelect = `
@@ -927,6 +959,7 @@ exports.getAllListings = async (req, res, next) => {
     }
 
     query += `
+      ${boundsWhere}
       ${distanceWhere}
       ORDER BY l.created_at DESC
       LIMIT $${idx++} OFFSET $${idx}

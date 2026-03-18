@@ -25,11 +25,8 @@ const handleValidationErrors = (req, res, next) => {
  */
 const validateRegister = [
   body('name').trim().notEmpty().withMessage('Name is required'),
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Valid email is required'),
-    // .normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  // .normalizeEmail(),
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters'),
@@ -52,20 +49,14 @@ const validateLogin = [
 ];
 
 const validateSendVerificationEmail = [
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Valid email is required'),
-    // .normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  // .normalizeEmail(),
   handleValidationErrors,
 ];
 
 const validateVerifyEmail = [
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Valid email is required'),
-    // .normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  // .normalizeEmail(),
   body('code')
     .trim()
     .matches(/^\d{6}$/)
@@ -360,6 +351,11 @@ const validateSendMessage = [
   handleValidationErrors,
 ];
 
+const validateConversationId = [
+  param('conversationId').isUUID().withMessage('Invalid conversation ID'),
+  handleValidationErrors,
+];
+
 /**
  * TRADE VALIDATIONS
  */
@@ -464,6 +460,7 @@ module.exports = {
   // Conversations
   validateCreateConversation,
   validateSendMessage,
+  validateConversationId,
 
   // Trades
   validateCreateTrade,

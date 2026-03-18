@@ -510,3 +510,62 @@ exports.getConversationById = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.deleteConversation = async (req, res, next) => {
+  const { conversationId } = req.params;
+  const userId = req.user.id;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const membership = await client.query(
+      `
+      SELECT id
+      FROM conversations
+      WHERE id = $1
+        AND ($2 = participant1_id OR $2 = participant2_id)
+      FOR UPDATE
+      `,
+      [conversationId, userId]
+    );
+
+    if (!membership.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation not found or access denied',
+      });
+    }
+
+    await client.query(`DELETE FROM messages WHERE conversation_id = $1`, [
+      conversationId,
+    ]);
+
+    const deleteConversationResult = await client.query(
+      `DELETE FROM conversations WHERE id = $1`,
+      [conversationId]
+    );
+
+    if (deleteConversationResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation not found',
+      });
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Conversation deleted successfully',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
+  }
+};

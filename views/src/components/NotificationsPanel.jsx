@@ -1,11 +1,53 @@
-import { Bell, MessageSquare, Package, Star, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bell, MessageSquare, Package, Star, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import apiClient from '../services/api';
 
 const PAGE_SIZE = 25;
 
-export function NotificationsPanel({ isOpen, onClose, onNotificationClick }) {
+// Helper function to group notifications by date
+const getDateGroup = (createdAt) => {
+  const now = new Date();
+  const notifDate = new Date(createdAt);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  if (notifDate >= today) {
+    return { label: 'Today', order: 0 };
+  }
+  if (notifDate >= yesterday) {
+    return { label: 'Yesterday', order: 1 };
+  }
+  if (notifDate >= weekAgo) {
+    return { label: 'This Week', order: 2 };
+  }
+  return { label: 'Earlier', order: 3 };
+};
+
+// Group notifications by date
+const groupNotificationsByDate = (notifications) => {
+  const groups = new Map();
+
+  notifications.forEach((notif) => {
+    const { label, order } = getDateGroup(notif.created_at);
+    if (!groups.has(label)) {
+      groups.set(label, { label, order, notifications: [] });
+    }
+    groups.get(label).notifications.push(notif);
+  });
+
+  return Array.from(groups.values()).sort((a, b) => a.order - b.order);
+};
+
+export function NotificationsPanel({
+  isOpen,
+  onClose,
+  onNotificationClick,
+  onUnreadCountChange,
+}) {
   const [notifications, setNotifications] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
@@ -81,6 +123,12 @@ export function NotificationsPanel({ isOpen, onClose, onNotificationClick }) {
     fetchNotifications();
   }, [isOpen, fetchNotifications]);
 
+  useEffect(() => {
+    if (typeof onUnreadCountChange === 'function') {
+      onUnreadCountChange(unreadCount);
+    }
+  }, [unreadCount, onUnreadCountChange]);
+
   const getIcon = (type) => {
     switch (type) {
       case 'message':
@@ -150,6 +198,30 @@ export function NotificationsPanel({ isOpen, onClose, onNotificationClick }) {
     }
   };
 
+  const deleteNotification = useCallback(
+    async (id, isUnread) => {
+      // Optimistic update
+      setNotifications((prev) => {
+        const existed = prev.some((notif) => notif.id === id);
+
+        if (existed && isUnread) {
+          setUnreadCount((prevUnread) => Math.max(0, prevUnread - 1));
+        }
+
+        return prev.filter((notif) => notif.id !== id);
+      });
+
+      try {
+        await apiClient.delete(`/api/notifications/${id}`);
+      } catch (err) {
+        console.error('Failed to delete notification:', err);
+        // Re-fetch if deletion fails
+        fetchNotifications();
+      }
+    },
+    [fetchNotifications]
+  );
+
   const handleScroll = () => {
     const el = listRef.current;
     if (!el || isLoadingMore || !hasMore || !nextCursor) return;
@@ -159,6 +231,11 @@ export function NotificationsPanel({ isOpen, onClose, onNotificationClick }) {
       fetchNotifications({ append: true, cursor: nextCursor });
     }
   };
+
+  // Memoize grouped notifications for performance
+  const groupedNotifications = useMemo(() => {
+    return groupNotificationsByDate(notifications);
+  }, [notifications]);
 
   if (!isOpen) return null;
 
@@ -229,35 +306,59 @@ export function NotificationsPanel({ isOpen, onClose, onNotificationClick }) {
             </div>
           ) : (
             <div>
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  onClick={() => void handleNotificationClick(notification)}
-                  className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    !notification.is_read ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-1">
-                      {getIcon(notification.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="text-sm font-medium">
-                          {notification.title}
-                        </h4>
-                        {!notification.is_read && (
-                          <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {notification.description}
-                      </p>
-                      <span className="text-xs text-gray-500 mt-1 block">
-                        {notification.timeAgo}
-                      </span>
-                    </div>
+              {groupedNotifications.map((group) => (
+                <div key={group.label}>
+                  <div className="px-4 py-3 bg-gray-100 sticky top-0 z-10">
+                    <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      {group.label}
+                    </h3>
                   </div>
+                  {group.notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors group/notif ${
+                        !notification.is_read ? 'bg-blue-50' : ''
+                      }`}
+                      onClick={() => void handleNotificationClick(notification)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-1">
+                          {getIcon(notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-sm font-medium">
+                              {notification.title}
+                            </h4>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {!notification.is_read && (
+                                <div className="w-2 h-2 bg-blue-600 rounded-full" />
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteNotification(
+                                    notification.id,
+                                    !notification.is_read
+                                  );
+                                }}
+                                className="opacity-0 group-hover/notif:opacity-100 p-1 text-gray-400 hover:text-red-600 transition-all"
+                                title="Delete notification"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {notification.description}
+                          </p>
+                          <span className="text-xs text-gray-500 mt-1 block">
+                            {notification.timeAgo}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
               {isLoadingMore && (

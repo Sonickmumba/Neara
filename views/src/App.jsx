@@ -18,6 +18,7 @@ import { HomeFeed } from './features/homeScreen/HomeFeed';
 import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
 import { Favorites } from './features/homeScreen/Favorites';
 import { ListingDetails } from './features/homeScreen/ListingDetails';
+import { MapViewScreen } from './features/mapView/MapViewScreen';
 import { CreateListing } from './components/CreateListing';
 import { HomeSearchResult } from './features/homeScreen/components/HomeSearchResult';
 import { ChatConversationScreen } from './features/chat/ChatConversationScreen';
@@ -62,10 +63,7 @@ function App() {
               path="listing-details/:selectedListingId"
               element={<ListingDetails />}
             />
-            <Route
-              path="map"
-              element={<div className="p-6">Map view coming soon!</div>}
-            />
+            <Route path="map" element={<MapViewScreen />} />
             <Route
               path="chat-list"
               element={
