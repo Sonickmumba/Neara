@@ -135,7 +135,7 @@ const calculateUserBadges = (userData) => {
   }
 
   // Verified - has verified phone and email
-  if (userData.phone_verified || userData.email_verified) {
+  if (userData.phone_verified && userData.email_verified) {
     badges.push({
       id: 'verified',
       name: 'Verified',
