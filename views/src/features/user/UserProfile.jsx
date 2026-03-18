@@ -196,7 +196,7 @@ export function UserProfileScreen() {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h1>{profile.name}</h1>
-                {!!profile.phone_verified ||
+                {!!profile.phone_verified && 
                   (!!profile.email_verified && (
                     <Shield className="w-5 h-5 text-blue-600 fill-blue-100" />
                   ))}
@@ -205,7 +205,7 @@ export function UserProfileScreen() {
                 <ReputationBadge
                   rating={profile.rating}
                   isVerified={
-                    !!profile.phone_verified || !!profile.email_verified
+                    !!profile.phone_verified && !!profile.email_verified
                   }
                   totalRatings={profile.total_ratings}
                   size="md"
