@@ -124,8 +124,11 @@ export function TradeNegotiation() {
 
   const getMinDate = () => {
     const today = new Date();
-    today.setDate(today.getDate() + 1); // Tomorrow
-    return today.toISOString().split('T')[0];
+    today.setDate(today.getDate() + 1); // Tomorrow (local time)
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   return (
