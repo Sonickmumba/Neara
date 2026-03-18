@@ -532,28 +532,6 @@ export function ReviewRating() {
             </div>
           </div>
 
-          {/* Privacy */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="public"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-              />
-              <label htmlFor="public" className="flex-1 cursor-pointer">
-                <div className="font-medium text-gray-900 mb-1">
-                  Make this review public
-                </div>
-                <p className="text-sm text-gray-600">
-                  Public reviews help build trust in the community. Your review
-                  will appear on {partner.name}'s profile.
-                </p>
-              </label>
-            </div>
-          </div>
-
           {/* Info Banner */}
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <div className="flex gap-3">
