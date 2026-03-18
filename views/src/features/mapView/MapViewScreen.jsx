@@ -246,28 +246,26 @@ export function MapViewScreen() {
   const markerPoints = useMemo(() => {
     if (!filteredListings.length) return [];
 
-    const coords = filteredListings.map((listing, index) => {
-      const lat = toNumberOrNull(listing.location_lat);
-      const lng = toNumberOrNull(listing.location_lng);
+    const coords = filteredListings
+      .map((listing) => {
+        const lat = toNumberOrNull(listing.location_lat);
+        const lng = toNumberOrNull(listing.location_lng);
 
-      if (lat === null || lng === null) {
-        const row = Math.floor(index / 4);
-        const col = index % 4;
+        if (lat === null || lng === null) {
+          // Exclude listings without valid coordinates from the map.
+          return null;
+        }
+
         return {
           listing,
-          lat: -15.4 + row * 0.02,
-          lng: 28.2 + col * 0.03,
-          synthetic: true,
+          lat,
+          lng,
+          synthetic: false,
         };
-      }
+      })
+      .filter(Boolean);
 
-      return {
-        listing,
-        lat,
-        lng,
-        synthetic: false,
-      };
-    });
+    if (!coords.length) return [];
 
     const lats = coords.map((item) => item.lat);
     const lngs = coords.map((item) => item.lng);
