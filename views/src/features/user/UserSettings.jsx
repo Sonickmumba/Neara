@@ -763,7 +763,7 @@ export function UserSettingsScreen() {
                 <Globe className="w-5 h-5 text-gray-400" />
                 <div>
                   <div className="font-medium text-gray-900">
-                    About LocalLoop
+                    About Neara
                   </div>
                   <div className="text-sm text-gray-500">Version 1.0.0</div>
                 </div>
@@ -814,7 +814,7 @@ export function UserSettingsScreen() {
         </div>
 
         <div className="text-center text-sm text-gray-500 pb-6">
-          <p>LocalLoop v1.0.0</p>
+          <p>Neara v1.0.0</p>
           <div className="flex items-center justify-center gap-4 mt-2">
             <button
               onClick={() => toast.info('Terms coming soon')}
