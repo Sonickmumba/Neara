@@ -140,6 +140,8 @@ export function MessageListScreen() {
     });
   }, []);
 
+  const latestDragOffsetRef = useRef(0);
+
   const startSwipe = useCallback(
     (chatId, startX) => {
       const baseOffset = swipedChatId === chatId ? -SWIPE_ACTION_WIDTH : 0;
@@ -149,6 +151,7 @@ export function MessageListScreen() {
         baseOffset,
         moved: false,
       };
+      latestDragOffsetRef.current = baseOffset;
       setDraggingChatId(chatId);
       setDragOffset(baseOffset);
     },
@@ -172,6 +175,7 @@ export function MessageListScreen() {
         Math.min(0, drag.baseOffset + deltaX)
       );
 
+      latestDragOffsetRef.current = nextOffset;
       flushDragOffset(nextOffset);
     },
     [flushDragOffset]
@@ -181,10 +185,12 @@ export function MessageListScreen() {
     const drag = dragStateRef.current;
     if (!drag) return;
 
-    const shouldOpen = dragOffset <= -SWIPE_OPEN_THRESHOLD;
+    const offset = latestDragOffsetRef.current;
+    const shouldOpen = offset <= -SWIPE_OPEN_THRESHOLD;
     setSwipedChatId(shouldOpen ? drag.chatId : null);
     setDraggingChatId(null);
     setDragOffset(0);
+    latestDragOffsetRef.current = 0;
 
     if (drag.moved) {
       suppressClickRef.current = true;
@@ -194,7 +200,7 @@ export function MessageListScreen() {
     }
 
     dragStateRef.current = null;
-  }, [dragOffset]);
+  }, []);
 
   const handleDeleteConversation = useCallback(
     async (chat) => {
