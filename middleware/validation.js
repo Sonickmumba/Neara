@@ -28,8 +28,8 @@ const validateRegister = [
   body('email')
     .trim()
     .isEmail()
-    .withMessage('Valid email is required')
-    .normalizeEmail(),
+    .withMessage('Valid email is required'),
+    // .normalizeEmail(),
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters'),
@@ -55,8 +55,8 @@ const validateSendVerificationEmail = [
   body('email')
     .trim()
     .isEmail()
-    .withMessage('Valid email is required')
-    .normalizeEmail(),
+    .withMessage('Valid email is required'),
+    // .normalizeEmail(),
   handleValidationErrors,
 ];
 
@@ -64,8 +64,8 @@ const validateVerifyEmail = [
   body('email')
     .trim()
     .isEmail()
-    .withMessage('Valid email is required')
-    .normalizeEmail(),
+    .withMessage('Valid email is required'),
+    // .normalizeEmail(),
   body('code')
     .trim()
     .matches(/^\d{6}$/)
