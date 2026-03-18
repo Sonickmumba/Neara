@@ -588,17 +588,20 @@ export function MapViewScreen() {
           )}
         </button>
 
-        {effectiveUserLocation && (
-          <div
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
-            style={{ left: '50%', top: '50%' }}
-          >
-            <div className="relative">
-              <div className="w-4 h-4 bg-blue-600 border-2 border-white rounded-full shadow" />
-              <div className="absolute inset-0 w-4 h-4 bg-blue-600 rounded-full animate-ping opacity-40" />
+        {effectiveUserLocation &&
+          mapCenter &&
+          Math.abs(mapCenter.lat - effectiveUserLocation.lat) < 1e-5 &&
+          Math.abs(mapCenter.lng - effectiveUserLocation.lng) < 1e-5 && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
+              style={{ left: '50%', top: '50%' }}
+            >
+              <div className="relative">
+                <div className="w-4 h-4 bg-blue-600 border-2 border-white rounded-full shadow" />
+                <div className="absolute inset-0 w-4 h-4 bg-blue-600 rounded-full animate-ping opacity-40" />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         <div className="absolute top-4 left-4 bg-white rounded-lg shadow px-4 py-2 z-10">
           <p className="text-sm font-medium text-gray-900">
