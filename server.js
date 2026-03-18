@@ -5,6 +5,29 @@ const path = require('path');
 const dotenv = require('dotenv');
 dotenv.config();
 
+const validateProductionEnv = () => {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const requiredTwilioVars = [
+    'TWILIO_ACCOUNT_SID',
+    'TWILIO_AUTH_TOKEN',
+    'TWILIO_FROM_NUMBER',
+  ];
+
+  const missingVars = requiredTwilioVars.filter(
+    (key) => !String(process.env[key] || '').trim()
+  );
+
+  if (missingVars.length > 0) {
+    console.error(
+      `❌ Startup blocked: missing required Twilio env vars in production: ${missingVars.join(', ')}`
+    );
+    process.exit(1);
+  }
+};
+
+validateProductionEnv();
+
 const http = require('http');
 const { Server } = require('socket.io');
 
