@@ -743,3 +743,70 @@ exports.resetPassword = async (req, res) => {
     });
   }
 };
+
+const getFrontendBaseUrl = () => {
+  const candidate =
+    process.env.FRONTEND_URL ||
+    process.env.CORS_ORIGIN ||
+    'http://localhost:5173';
+
+  return String(candidate).replace(/\/$/, '');
+};
+
+const buildFrontendUrl = (path, params = {}) => {
+  const base = getFrontendBaseUrl();
+  const url = new URL(path, `${base}/`);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    url.searchParams.set(key, String(value));
+  });
+
+  return url.toString();
+};
+
+exports.socialAuthFailureRedirect = (req, res) => {
+  const reason = req.query.reason || 'oauth_failed';
+  const provider = req.query.provider || 'social';
+
+  const redirectUrl = buildFrontendUrl('/loginSignup', {
+    social: 'error',
+    provider,
+    reason,
+  });
+
+  return res.redirect(redirectUrl);
+};
+
+exports.socialAuthSuccessRedirect = (req, res) => {
+  const user = req.user;
+
+  if (!user?.id) {
+    const redirectUrl = buildFrontendUrl('/loginSignup', {
+      social: 'error',
+      reason: 'session_missing',
+    });
+    return res.redirect(redirectUrl);
+  }
+
+  const redirectUrl = user.phone_verified
+    ? buildFrontendUrl('/homeFeed', { social: 'success' })
+    : buildFrontendUrl('/verifyPhone', {
+        social: 'success',
+        returnTo: '/homeFeed',
+        allowSkip: 'true',
+        phone: user.phone || '',
+      });
+
+  req.session.save((saveErr) => {
+    if (saveErr) {
+      const fallback = buildFrontendUrl('/loginSignup', {
+        social: 'error',
+        reason: 'session_save_failed',
+      });
+      return res.redirect(fallback);
+    }
+
+    return res.redirect(redirectUrl);
+  });
+};

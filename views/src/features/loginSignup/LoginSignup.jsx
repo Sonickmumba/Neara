@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   loginUser,
   registerUser,
@@ -20,9 +20,28 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const AUTH_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
+
+const socialErrorMessage = (reason) => {
+  switch (reason) {
+    case 'provider_not_configured':
+      return 'This social provider is not configured yet.';
+    case 'OAUTH_EMAIL_REQUIRED':
+      return 'Your provider did not return an email address. Please use email signup.';
+    case 'oauth_denied':
+      return 'Sign in was cancelled.';
+    case 'login_session_failed':
+    case 'session_save_failed':
+      return 'Social sign in failed while creating your session. Please try again.';
+    default:
+      return 'Social sign in failed. Please try again.';
+  }
+};
+
 export function LoginSignup() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const authStatus = useSelector((state) => state.auth.status);
   const authError = useSelector((state) => state.auth.error);
@@ -51,6 +70,17 @@ export function LoginSignup() {
       toast.error(authError);
     }
   }, [authError]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const social = params.get('social');
+    const reason = params.get('reason');
+
+    if (social === 'error') {
+      toast.error(socialErrorMessage(reason));
+      navigate('/loginSignup', { replace: true });
+    }
+  }, [location.search, navigate]);
 
   // navigation happens once the register thunk has resolved; see
   // onVerified handler below.
@@ -143,7 +173,15 @@ export function LoginSignup() {
   };
 
   const handleSocialLogin = (provider) => {
-    toast.info(`${provider} login coming soon!`);
+    const normalizedProvider = String(provider || '').toLowerCase();
+    const allowed = new Set(['google', 'facebook']);
+    if (!allowed.has(normalizedProvider)) {
+      toast.error('Unsupported social provider');
+      return;
+    }
+
+    const target = `${AUTH_BASE_URL}/api/auth/${normalizedProvider}`;
+    window.location.assign(target);
   };
 
   return (

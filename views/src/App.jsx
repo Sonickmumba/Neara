@@ -6,6 +6,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useDispatch } from 'react-redux';
 
 import './App.css';
 
@@ -32,15 +33,21 @@ import { UserSettingsScreen } from './features/user/UserSettings';
 import { RequireAuth } from './components/RequireAuth';
 import { RequirePhoneVerified } from './components/RequirePhoneVerified';
 import { setupAuthInterceptor } from './services/api';
+import { fetchCurrentUser } from './features/loginSignup/authSlice';
 import { Toaster } from 'sonner';
 
 function App() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   // Setup global auth interceptor for API calls
   useEffect(() => {
     setupAuthInterceptor(navigate);
   }, [navigate]);
+
+  useEffect(() => {
+    dispatch(fetchCurrentUser());
+  }, [dispatch]);
 
   return (
     <>
