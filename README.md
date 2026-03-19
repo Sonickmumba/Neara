@@ -42,13 +42,13 @@ npm install
 2. Create database:
 ```bash
 mysql -u root -p
-CREATE DATABASE localloop;
+CREATE DATABASE Neara;
 exit;
 ```
 
 3. Import schema:
 ```bash
-mysql -u root -p localloop < database/schema.sql
+mysql -u root -p Neara < database/schema.sql
 ```
 
 4. Configure environment:
