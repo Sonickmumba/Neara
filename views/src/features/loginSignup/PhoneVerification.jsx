@@ -51,17 +51,26 @@ export function PhoneVerificationScreen() {
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState('');
 
-  const returnTo = location.state?.returnTo || '/homeFeed';
-  const allowSkip = location.state?.allowSkip !== false;
+  const queryParams = new URLSearchParams(location.search);
+  const returnToFromQuery = queryParams.get('returnTo');
+  const allowSkipFromQuery = queryParams.get('allowSkip');
+  const phoneFromQuery = queryParams.get('phone');
+
+  const returnTo = location.state?.returnTo || returnToFromQuery || '/homeFeed';
+  const allowSkip =
+    location.state?.allowSkip !== undefined
+      ? location.state.allowSkip
+      : allowSkipFromQuery !== 'false';
 
   const inputRefs = useRef([]);
 
   useEffect(() => {
-    const prefilled = location.state?.phone || currentUser?.phone;
+    const prefilled =
+      location.state?.phone || phoneFromQuery || currentUser?.phone;
     if (prefilled) {
       setPhoneNumber(formatPhoneNumber(String(prefilled)));
     }
-  }, [location.state?.phone, currentUser?.phone]);
+  }, [location.state?.phone, phoneFromQuery, currentUser?.phone]);
 
   useEffect(() => {
     if (countdown <= 0) return undefined;

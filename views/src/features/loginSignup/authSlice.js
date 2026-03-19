@@ -1,6 +1,20 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../../services/api';
 
+export const fetchCurrentUser = createAsyncThunk(
+  'auth/fetchCurrentUser',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.get('/api/auth/me');
+      return res.data?.data || null;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Not authenticated'
+      );
+    }
+  }
+);
+
 /**
  * SEND VERIFICATION EMAIL
  * POST /api/auth/send-verification
@@ -141,6 +155,7 @@ const authSlice = createSlice({
   initialState: {
     user: null,
     status: 'idle',
+    bootstrapStatus: 'idle', // idle | loading | succeeded | failed
     error: null,
     isAuthenticated: false,
     emailVerificationStatus: 'idle', // 'idle' | 'pending' | 'verified' | 'failed'
@@ -213,7 +228,7 @@ const authSlice = createSlice({
         state.emailVerificationStatus = 'pending';
         state.emailVerificationError = null;
       })
-      .addCase(verifyEmail.fulfilled, (state, action) => {
+      .addCase(verifyEmail.fulfilled, (state) => {
         state.emailVerificationStatus = 'verified';
         state.pendingEmail = null;
       })
@@ -240,6 +255,21 @@ const authSlice = createSlice({
       })
       .addCase(verifyPhoneCode.rejected, (state, action) => {
         state.error = action.payload;
+      })
+
+      // bootstrap current user from session cookie
+      .addCase(fetchCurrentUser.pending, (state) => {
+        state.bootstrapStatus = 'loading';
+      })
+      .addCase(fetchCurrentUser.fulfilled, (state, action) => {
+        state.bootstrapStatus = 'succeeded';
+        state.user = action.payload || null;
+        state.isAuthenticated = !!action.payload;
+      })
+      .addCase(fetchCurrentUser.rejected, (state) => {
+        state.bootstrapStatus = 'failed';
+        state.user = null;
+        state.isAuthenticated = false;
       });
   },
 });
