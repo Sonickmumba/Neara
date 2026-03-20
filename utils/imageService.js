@@ -39,7 +39,11 @@ const upload = multer({
 
 // Upload single image to Cloudinary
 // Pass options.transformation to override the default listing transformation.
-const uploadToCloudinary = (buffer, folder = 'neara-listings', options = {}) => {
+const uploadToCloudinary = (
+  buffer,
+  folder = 'neara-listings',
+  options = {}
+) => {
   return new Promise((resolve, reject) => {
     const defaultTransformation = [
       { width: 1200, height: 1200, crop: 'limit' },
