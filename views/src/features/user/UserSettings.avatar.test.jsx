@@ -38,7 +38,8 @@ import apiClient from '../../services/api';
 import { toast } from 'sonner';
 import authReducer from '../loginSignup/authSlice';
 
-const AVATAR_URL = 'https://res.cloudinary.com/demo/image/upload/neara-avatars/test.webp';
+const AVATAR_URL =
+  'https://res.cloudinary.com/demo/image/upload/neara-avatars/test.webp';
 
 function makeStore(userOverrides = {}) {
   return configureStore({
@@ -86,7 +87,9 @@ function renderScreen(store = makeStore()) {
 function stubGetCalls() {
   apiClient.get.mockImplementation((url) => {
     if (url.includes('/settings'))
-      return Promise.resolve({ data: { data: { notifications: {}, privacy: {} } } });
+      return Promise.resolve({
+        data: { data: { notifications: {}, privacy: {} } },
+      });
     return Promise.resolve({
       data: {
         data: {
@@ -108,7 +111,11 @@ beforeEach(() => {
 });
 
 // Helper — create a fake File object
-function makeFile({ name = 'photo.jpg', type = 'image/jpeg', sizeBytes = 1024 } = {}) {
+function makeFile({
+  name = 'photo.jpg',
+  type = 'image/jpeg',
+  sizeBytes = 1024,
+} = {}) {
   const file = new File(['x'.repeat(sizeBytes)], name, { type });
   return file;
 }
@@ -193,9 +200,7 @@ describe('UserSettings — avatar validation', () => {
     fireEvent.change(input, { target: { files: [bigFile] } });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(
-        expect.stringMatching(/5 mb/i)
-      );
+      expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/5 mb/i));
     });
     expect(apiClient.post).not.toHaveBeenCalled();
   });
@@ -254,7 +259,9 @@ describe('UserSettings — avatar upload', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /uploading/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /uploading/i })
+      ).toBeInTheDocument();
     });
   });
 
