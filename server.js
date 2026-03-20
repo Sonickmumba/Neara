@@ -140,16 +140,70 @@ app.get('/api/test-email', async (req, res) => {
 /* ======================
    SOCKET EVENTS
 ====================== */
+
+// Presence tracking (in-memory; swap for Redis adapter for multi-server deployments)
+// Map<conversationId, Map<userId, Set<socketId>>>
+const presenceMap = new Map();
+// Map<socketId, { userId, conversationId }>
+const socketMeta = new Map();
+
+function addPresence(conversationId, userId, socketId) {
+  if (!presenceMap.has(conversationId))
+    presenceMap.set(conversationId, new Map());
+  const conv = presenceMap.get(conversationId);
+  if (!conv.has(userId)) conv.set(userId, new Set());
+  conv.get(userId).add(socketId);
+}
+
+// Returns true when the user has no remaining sockets in this conversation
+function removePresence(conversationId, userId, socketId) {
+  const conv = presenceMap.get(conversationId);
+  if (!conv) return false;
+  const sockets = conv.get(userId);
+  if (!sockets) return false;
+  sockets.delete(socketId);
+  if (sockets.size === 0) {
+    conv.delete(userId);
+    if (conv.size === 0) presenceMap.delete(conversationId);
+    return true;
+  }
+  return false;
+}
+
+function getOnlineUserIds(conversationId, excludeUserId) {
+  const conv = presenceMap.get(conversationId);
+  if (!conv) return [];
+  return Array.from(conv.keys()).filter((id) => id !== String(excludeUserId));
+}
+
 io.on('connection', (socket) => {
   console.log('🟢 Socket connected:', socket.id);
 
-  socket.on('join-conversation', (conversationId, ack) => {
+  // Accepts { conversationId, userId } (new) or plain conversationId string (legacy)
+  socket.on('join-conversation', (data, ack) => {
+    const conversationId =
+      typeof data === 'object' ? data.conversationId : data;
+    const userId = typeof data === 'object' ? String(data.userId || '') : null;
+
     if (!conversationId) {
       if (ack) ack(false);
       return;
     }
 
     socket.join(conversationId);
+
+    if (userId) {
+      addPresence(conversationId, userId, socket.id);
+      socketMeta.set(socket.id, { userId, conversationId });
+
+      // Tell the joiner who else is already online in this conversation
+      const onlineNow = getOnlineUserIds(conversationId, userId);
+      socket.emit('presence_snapshot', onlineNow);
+
+      // Tell everyone else that this user came online
+      socket.to(conversationId).emit('partner_online', { userId });
+    }
+
     if (ack) ack(true);
   });
 
@@ -175,6 +229,18 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('🔴 Socket disconnected:', socket.id);
+
+    const meta = socketMeta.get(socket.id);
+    if (meta) {
+      const { userId, conversationId } = meta;
+      const wasLastSocket = removePresence(conversationId, userId, socket.id);
+      socketMeta.delete(socket.id);
+
+      // Only broadcast offline when the user's last socket leaves (multi-tab safe)
+      if (wasLastSocket) {
+        socket.to(conversationId).emit('partner_offline', { userId });
+      }
+    }
   });
 });
 
