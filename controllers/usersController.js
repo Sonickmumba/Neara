@@ -440,9 +440,13 @@ exports.updateAvatar = async (req, res, next) => {
       { fetch_format: 'auto', quality: 'auto' },
     ];
 
-    const uploaded = await uploadToCloudinary(req.file.buffer, 'neara-avatars', {
-      transformation: avatarTransformation,
-    });
+    const uploaded = await uploadToCloudinary(
+      req.file.buffer,
+      'neara-avatars',
+      {
+        transformation: avatarTransformation,
+      }
+    );
 
     // Update DB
     await pool.query(
