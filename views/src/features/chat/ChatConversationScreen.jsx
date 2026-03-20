@@ -61,6 +61,8 @@ export function ChatConversationScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  // Set of userIds currently online in this conversation (populated by socket presence events)
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [error, setError] = useState(null);
@@ -77,6 +79,11 @@ export function ChatConversationScreen() {
   const partnerName =
     conversationMeta?.partner?.name || location.state?.partnerName || 'User';
   const partnerId = conversationMeta?.partner?.id || null;
+  // Derived: true when the partner's userId appears in the presence set.
+  // Uses String() so numeric and string IDs always compare correctly.
+  const isPartnerOnline = partnerId
+    ? onlineUserIds.has(String(partnerId))
+    : false;
   const listingTitle =
     conversationMeta?.listing?.title ||
     location.state?.listingTitle ||
@@ -95,7 +102,7 @@ export function ChatConversationScreen() {
     rating: null,
     isVerified: false,
     totalRatings: null,
-    isOnline: isConnected,
+    isOnline: isPartnerOnline,
     hasActiveTrade: false,
   };
 
@@ -282,12 +289,14 @@ export function ChatConversationScreen() {
 
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('join-conversation', conversationId);
+      // Send userId so the server can track our presence
+      socket.emit('join-conversation', { conversationId, userId: currentUser?.id });
     });
 
     socket.on('disconnect', () => {
       setIsConnected(false);
       setTypingUsers(new Map());
+      setOnlineUserIds(new Set()); // clear presence on disconnect
     });
 
     socket.on('new_message', (incomingMessage) => {
@@ -372,6 +381,29 @@ export function ChatConversationScreen() {
       });
     });
 
+    // Presence: server sends which userIds are already online when we join
+    socket.on('presence_snapshot', (onlineUserIdsList) => {
+      setOnlineUserIds(new Set(onlineUserIdsList.map(String)));
+    });
+
+    // Presence: a user came online in this conversation
+    socket.on('partner_online', ({ userId }) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        next.add(String(userId));
+        return next;
+      });
+    });
+
+    // Presence: a user's last socket left this conversation
+    socket.on('partner_offline', ({ userId }) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(String(userId));
+        return next;
+      });
+    });
+
     return () => {
       // Cleanup: clear all typing timeouts
       typingTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
@@ -380,6 +412,9 @@ export function ChatConversationScreen() {
       socket.off('new_message');
       socket.off('user_typing');
       socket.off('user_stopped_typing');
+      socket.off('presence_snapshot');
+      socket.off('partner_online');
+      socket.off('partner_offline');
       socket.disconnect();
       socketRef.current = null;
     };
