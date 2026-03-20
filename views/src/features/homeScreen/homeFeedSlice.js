@@ -36,6 +36,18 @@ const homeFeedSlice = createSlice({
     addListing(state, action) {
       homeFeedAdapter.upsertOne(state, action.payload);
     },
+    /**
+     * resetFeed — clears all listings and resets status to 'idle'.
+     * Used by pull-to-refresh to wipe stale data before re-fetching.
+     * Setting status to 'idle' lets the existing useEffect in HomeFeed
+     * automatically dispatch fetchHomeFeed.
+     */
+    resetFeed(state) {
+      homeFeedAdapter.removeAll(state);
+      state.status = 'idle';
+      state.error = null;
+      state.nextCursor = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -63,5 +75,5 @@ const homeFeedSlice = createSlice({
   },
 });
 
-export const { setActiveTab, addListing } = homeFeedSlice.actions;
+export const { setActiveTab, addListing, resetFeed } = homeFeedSlice.actions;
 export default homeFeedSlice.reducer;
