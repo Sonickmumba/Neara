@@ -590,7 +590,7 @@ export function ChatConversationScreen() {
               )}
 
               <div
-                className={`flex flex-col ${message.sender === 'me' ? 'items-end' : 'items-start'}`}
+                className={`flex flex-col w-full ${message.sender === 'me' ? 'items-end' : 'items-start'}`}
               >
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-3 ${
