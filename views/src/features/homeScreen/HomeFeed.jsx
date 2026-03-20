@@ -135,7 +135,9 @@ export function HomeFeed() {
                 }`}
               />
               <span className="text-sm">
-                {pullDistance >= THRESHOLD ? 'Release to refresh' : 'Pull to refresh'}
+                {pullDistance >= THRESHOLD
+                  ? 'Release to refresh'
+                  : 'Pull to refresh'}
               </span>
             </div>
           )}

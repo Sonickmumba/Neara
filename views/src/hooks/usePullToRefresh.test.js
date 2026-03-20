@@ -10,15 +10,20 @@ beforeEach(() => {
 
   // requestAnimationFrame runs its callback synchronously so state updates
   // are visible immediately in tests
-  vi.stubGlobal('requestAnimationFrame', (cb) => { cb(); return 1; });
+  vi.stubGlobal('requestAnimationFrame', (cb) => {
+    cb();
+    return 1;
+  });
   vi.stubGlobal('cancelAnimationFrame', () => {});
 
   // Intercept addEventListener to grab the handlers the hook registers
   const origAdd = document.addEventListener.bind(document);
-  vi.spyOn(document, 'addEventListener').mockImplementation((type, handler, opts) => {
-    capturedHandlers[type] = handler;
-    origAdd(type, handler, opts);
-  });
+  vi.spyOn(document, 'addEventListener').mockImplementation(
+    (type, handler, opts) => {
+      capturedHandlers[type] = handler;
+      origAdd(type, handler, opts);
+    }
+  );
 });
 
 afterEach(() => {
@@ -90,7 +95,10 @@ describe('usePullToRefresh', () => {
   it('sets isRefreshing to true while onRefresh is pending', async () => {
     let resolveRefresh;
     const onRefresh = vi.fn(
-      () => new Promise((res) => { resolveRefresh = res; })
+      () =>
+        new Promise((res) => {
+          resolveRefresh = res;
+        })
     );
     const { result } = renderHook(() => usePullToRefresh(onRefresh));
 
@@ -100,7 +108,9 @@ describe('usePullToRefresh', () => {
     expect(result.current.isRefreshing).toBe(true);
 
     // Settle the promise
-    await act(async () => { resolveRefresh(); });
+    await act(async () => {
+      resolveRefresh();
+    });
 
     expect(result.current.isRefreshing).toBe(false);
   });
@@ -108,7 +118,10 @@ describe('usePullToRefresh', () => {
   it('does not trigger a second refresh while one is already in progress', async () => {
     let resolveRefresh;
     const onRefresh = vi.fn(
-      () => new Promise((res) => { resolveRefresh = res; })
+      () =>
+        new Promise((res) => {
+          resolveRefresh = res;
+        })
     );
     renderHook(() => usePullToRefresh(onRefresh));
 
@@ -120,7 +133,9 @@ describe('usePullToRefresh', () => {
     gesture({ startY: 0, moveY: THRESHOLD + 10 });
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
-    await act(async () => { resolveRefresh(); });
+    await act(async () => {
+      resolveRefresh();
+    });
   });
 
   it('removes all touch event listeners on unmount', () => {

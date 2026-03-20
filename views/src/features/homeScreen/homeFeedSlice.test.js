@@ -39,7 +39,11 @@ describe('homeFeedSlice › resetFeed', () => {
   });
 
   it('clears the error field', () => {
-    const failedState = { ...EMPTY_STATE, status: 'failed', error: 'Network error' };
+    const failedState = {
+      ...EMPTY_STATE,
+      status: 'failed',
+      error: 'Network error',
+    };
     const after = reducer(failedState, resetFeed());
     expect(after.error).toBeNull();
   });
