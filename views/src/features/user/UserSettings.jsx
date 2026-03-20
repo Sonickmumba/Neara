@@ -23,7 +23,7 @@ import {
 import { toast } from 'sonner';
 
 import apiClient from '../../services/api';
-import { logout } from '../loginSignup/authSlice';
+import { logout, mergeUser } from '../loginSignup/authSlice';
 import { ChangePasswordPanel } from './ChangePasswordPanel';
 import { HelpSupportPanel } from './HelpSupportPanel';
 
@@ -85,6 +85,7 @@ export function UserSettingsScreen() {
     bio: '',
     neighborhood: '',
     avatar: 'U',
+    profile_image_url: '',
   });
 
   const [notifications, setNotifications] = useState(() => ({
@@ -110,6 +111,9 @@ export function UserSettingsScreen() {
   const [editedProfile, setEditedProfile] = useState(profile);
   const [showSecurity, setShowSecurity] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const fileInputRef = useRef(null);
 
   const initials = useMemo(() => {
     const source =
@@ -216,6 +220,7 @@ export function UserSettingsScreen() {
           bio: user.bio || '',
           neighborhood: user.neighborhood || '',
           avatar: getInitials(user.name || currentUser?.name || ''),
+          profile_image_url: user.profile_image_url || currentUser?.profile_image_url || '',
         };
 
         setProfile(nextProfile);
@@ -228,6 +233,7 @@ export function UserSettingsScreen() {
           bio: currentUser?.bio || '',
           neighborhood: currentUser?.neighborhood || '',
           avatar: getInitials(currentUser?.name || ''),
+          profile_image_url: currentUser?.profile_image_url || '',
         };
         setProfile(fallback);
         setEditedProfile(fallback);
@@ -238,6 +244,52 @@ export function UserSettingsScreen() {
 
     bootstrap();
   }, [currentUser]);
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Client-side guards
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please select a JPG, PNG, or WebP image');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be 5 MB or smaller');
+      return;
+    }
+
+    // Optimistic preview — instant, no network call
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
+
+    // Upload
+    const upload = async () => {
+      setAvatarUploading(true);
+      try {
+        const form = new FormData();
+        form.append('avatar', file);
+        const res = await apiClient.post('/api/users/avatar', form);
+        const url = res.data?.data?.profile_image_url;
+
+        setProfile((prev) => ({ ...prev, profile_image_url: url }));
+        setEditedProfile((prev) => ({ ...prev, profile_image_url: url }));
+        dispatch(mergeUser({ profile_image_url: url }));
+        setAvatarPreview(''); // Cloudinary URL is now in profile state
+      } catch (err) {
+        setAvatarPreview(''); // Revert optimistic preview
+        toast.error(err.response?.data?.message || 'Failed to upload photo');
+      } finally {
+        setAvatarUploading(false);
+        URL.revokeObjectURL(previewUrl);
+        // Reset input so the same file can be re-selected after an error
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+
+    upload();
+  };
 
   const handleSaveProfile = async () => {
     if (!editedProfile.name?.trim()) {
@@ -415,17 +467,46 @@ export function UserSettingsScreen() {
 
               <div className="p-6 space-y-6">
                 <div className="flex items-center gap-4">
+                  {/* Hidden file input — triggered by camera/Change Photo buttons */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                    aria-label="Upload profile photo"
+                  />
                   <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-medium">
-                      {initials}
-                    </div>
+                    {/* Avatar: show image if available, fall back to initials */}
+                    {avatarPreview || profile.profile_image_url ? (
+                      <img
+                        src={avatarPreview || profile.profile_image_url}
+                        alt="Profile"
+                        loading="lazy"
+                        onError={() => {
+                          setAvatarPreview('');
+                          setProfile((prev) => ({ ...prev, profile_image_url: '' }));
+                        }}
+                        className="w-20 h-20 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-medium">
+                        {initials}
+                      </div>
+                    )}
+                    {/* Spinner overlay while uploading */}
+                    {avatarUploading && (
+                      <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      </div>
+                    )}
                     {isEditing && (
                       <button
                         type="button"
-                        onClick={() =>
-                          toast.info('Profile photo upload coming soon')
-                        }
-                        className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={avatarUploading}
+                        className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        aria-label="Change profile photo"
                       >
                         <Camera className="w-4 h-4" />
                       </button>
@@ -435,15 +516,14 @@ export function UserSettingsScreen() {
                     <div>
                       <button
                         type="button"
-                        onClick={() =>
-                          toast.info('Profile photo upload coming soon')
-                        }
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={avatarUploading}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
                       >
-                        Change Photo
+                        {avatarUploading ? 'Uploading…' : 'Change Photo'}
                       </button>
                       <p className="text-xs text-gray-500 mt-1">
-                        JPG, PNG. Max 5MB
+                        JPG, PNG, WebP · Max 5 MB
                       </p>
                     </div>
                   )}

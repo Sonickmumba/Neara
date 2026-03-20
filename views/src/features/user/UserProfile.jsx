@@ -162,6 +162,8 @@ export function UserProfileScreen() {
 
   if (!profile || !stats) return null;
 
+  console.log('Rendering UserProfileScreen for user:', profile);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -190,9 +192,18 @@ export function UserProfileScreen() {
       <div className="max-w-2xl mx-auto">
         <div className="bg-white border-b border-gray-200 px-6 py-8">
           <div className="flex items-start gap-4 mb-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl">
-              {getInitials(profile.name)}
-            </div>
+            {profile.profile_image_url ? (
+              <img
+                src={profile.profile_image_url}
+                alt={`${profile.name ?? 'User'}'s profile`}
+                className="w-20 h-20 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl">
+                {getInitials(profile.name)}
+              </div>
+            )}
+
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h1>{profile.name}</h1>

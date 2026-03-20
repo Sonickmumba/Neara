@@ -119,6 +119,7 @@ exports.getAllListings = async (req, res, next) => {
         u.rating AS author_rating,
         u.total_ratings as totalRating,
         u.email_verified as isVerified,
+        u.profile_image_url as profile_image_url,
         ${distanceSelect},
         COALESCE(cc.count, 0) AS responses_count
       FROM listings l
@@ -218,6 +219,7 @@ exports.getListingsById = async (req, res, next) => {
         u.total_ratings AS totalRating,
         u.email_verified AS isVerified,
         u.completed_trades AS completedTrades,
+        u.profile_image_url AS profile_image_url,
         COALESCE(cc.count, 0) AS responses_count,
         ${distanceExpr}
       FROM listings l

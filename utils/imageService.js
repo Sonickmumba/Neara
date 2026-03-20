@@ -38,16 +38,20 @@ const upload = multer({
 });
 
 // Upload single image to Cloudinary
-const uploadToCloudinary = (buffer, folder = 'neara-listings') => {
+// Pass options.transformation to override the default listing transformation.
+const uploadToCloudinary = (buffer, folder = 'neara-listings', options = {}) => {
   return new Promise((resolve, reject) => {
+    const defaultTransformation = [
+      { width: 1200, height: 1200, crop: 'limit' },
+      { quality: 'auto' },
+      { fetch_format: 'auto' },
+    ];
+
     const uploadOptions = {
       folder,
       resource_type: 'image',
-      transformation: [
-        { width: 1200, height: 1200, crop: 'limit' }, // Resize to max 1200x1200
-        { quality: 'auto' }, // Auto quality optimization
-        { fetch_format: 'auto' }, // Auto format (WebP when supported)
-      ],
+      ...options,
+      transformation: options.transformation || defaultTransformation,
     };
 
     const stream = cloudinary.uploader.upload_stream(

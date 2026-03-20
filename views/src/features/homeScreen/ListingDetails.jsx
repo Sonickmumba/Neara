@@ -197,6 +197,8 @@ export function ListingDetails() {
     );
   }
 
+  console.log('Rendering ListingDetails for listing:', listing);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
@@ -342,13 +344,21 @@ export function ListingDetails() {
             }
             className="flex items-center gap-3 w-full p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
           >
+
+          {listing.profile_image_url ? (
+            <img
+              src={listing.profile_image_url}
+              alt={`${listing.author_name ?? 'Unknown'}'s profile`}
+              className="w-14 h-14 rounded-full object-cover"
+            />
+          ) : ( 
             <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-lg">
               {(listing.author_name ?? 'Unknown')
                 .split(' ')
                 .filter(Boolean)
                 .map((n) => n[0])
                 .join('')}
-            </div>
+            </div>)}
             <div className="flex-1 text-left">
               <div className="font-medium mb-2">
                 {listing.author_name ?? 'Unknown'}
