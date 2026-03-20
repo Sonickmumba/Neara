@@ -567,3 +567,182 @@ describe('ChatConversationScreen — header', () => {
     });
   });
 });
+
+// ── isOnline / presence feature ───────────────────────────────────────────────
+
+describe('ChatConversationScreen — partner online presence', () => {
+  /**
+   * The green dot and "Online"/"Offline" status reflect real partner presence,
+   * not our own socket connection state.
+   *
+   * Events:
+   *   presence_snapshot  server → client  string[]   who is online when we join
+   *   partner_online     server → client  { userId } partner just connected
+   *   partner_offline    server → client  { userId } partner has no more sockets
+   */
+
+  it('shows Offline initially before any presence event is received', async () => {
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('Bob')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Offline')).toBeInTheDocument();
+    expect(screen.queryByText('Online')).not.toBeInTheDocument();
+  });
+
+  it('shows Offline even after our socket connects (correct — only partner presence matters)', async () => {
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    // Simulate our socket establishing a connection (fires the 'connect' handler)
+    act(() => mockSocket._trigger('connect'));
+
+    // isOnline must NOT become true just from our socket connecting —
+    // only presence events from the server (presence_snapshot / partner_online) do that
+    expect(screen.getByText('Offline')).toBeInTheDocument();
+    expect(screen.queryByText('Online')).not.toBeInTheDocument();
+  });
+
+  it('shows Online after presence_snapshot includes the partner userId', async () => {
+    renderScreen();
+
+    // Wait for meta to load so partnerId is known (user-2)
+    await waitFor(() => screen.getByText('Bob'));
+
+    mockSocket._trigger('presence_snapshot', [PARTNER.id]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Online')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Online after partner_online event fires with partner userId', async () => {
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    mockSocket._trigger('partner_online', { userId: PARTNER.id });
+
+    await waitFor(() => {
+      expect(screen.getByText('Online')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Offline after partner_offline event fires', async () => {
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    // Bring online first
+    mockSocket._trigger('partner_online', { userId: PARTNER.id });
+
+    await waitFor(() => {
+      expect(screen.getByText('Online')).toBeInTheDocument();
+    });
+
+    // Then partner goes offline
+    mockSocket._trigger('partner_offline', { userId: PARTNER.id });
+
+    await waitFor(() => {
+      expect(screen.getByText('Offline')).toBeInTheDocument();
+    });
+  });
+
+  it('does NOT show Online when a different user (not the partner) comes online', async () => {
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    mockSocket._trigger('partner_online', { userId: 'some-other-user-id' });
+
+    // Should remain Offline — only the partner's userId triggers Online status
+    await waitFor(() => {
+      expect(screen.getByText('Offline')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Online')).not.toBeInTheDocument();
+  });
+
+  it('shows Online when presence_snapshot has the partner userId alongside others', async () => {
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    // Server sends multiple online users
+    mockSocket._trigger('presence_snapshot', ['some-observer', PARTNER.id, 'another-user']);
+
+    await waitFor(() => {
+      expect(screen.getByText('Online')).toBeInTheDocument();
+    });
+  });
+
+  it('stays Offline when presence_snapshot has no userIds', async () => {
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    mockSocket._trigger('presence_snapshot', []);
+
+    await waitFor(() => {
+      expect(screen.getByText('Offline')).toBeInTheDocument();
+    });
+  });
+
+  it('shows the green dot indicator element when partner is online', async () => {
+    const { container } = renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    // No green dot before presence event
+    expect(container.querySelector('.bg-green-500')).toBeNull();
+
+    mockSocket._trigger('partner_online', { userId: PARTNER.id });
+
+    await waitFor(() => {
+      expect(container.querySelector('.bg-green-500')).not.toBeNull();
+    });
+  });
+
+  it('removes the green dot when partner goes offline', async () => {
+    const { container } = renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    mockSocket._trigger('partner_online', { userId: PARTNER.id });
+
+    await waitFor(() => {
+      expect(container.querySelector('.bg-green-500')).not.toBeNull();
+    });
+
+    mockSocket._trigger('partner_offline', { userId: PARTNER.id });
+
+    await waitFor(() => {
+      expect(container.querySelector('.bg-green-500')).toBeNull();
+    });
+  });
+
+  it('emits join-conversation with { conversationId, userId } on connect', async () => {
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Bob'));
+
+    // Simulate socket connect — the component sends join-conversation inside the connect handler
+    act(() => mockSocket._trigger('connect'));
+
+    const joinCalls = mockSocket.emit.mock.calls.filter(
+      ([event]) => event === 'join-conversation'
+    );
+
+    expect(joinCalls.length).toBeGreaterThan(0);
+
+    const [, joinPayload] = joinCalls[0];
+
+    expect(joinPayload).toMatchObject({
+      conversationId: 'conv-1',
+      userId: CURRENT_USER.id,
+    });
+  });
+});
