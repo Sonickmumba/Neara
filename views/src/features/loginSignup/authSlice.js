@@ -5,7 +5,9 @@ export const fetchCurrentUser = createAsyncThunk(
   'auth/fetchCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
-      const res = await apiClient.get('/api/auth/me');
+      const res = await apiClient.get('/api/auth/me', {
+        skipAuthRedirect: true,
+      });
       return res.data?.data || null;
     } catch (err) {
       return rejectWithValue(
@@ -150,6 +152,48 @@ export const verifyPhoneCode = createAsyncThunk(
   }
 );
 
+/**
+ * REQUEST PASSWORD RESET
+ * POST /api/auth/request-password-reset
+ * Always resolves successfully (anti-enumeration)
+ */
+export const requestPasswordReset = createAsyncThunk(
+  'auth/requestPasswordReset',
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.post('/api/auth/request-password-reset', {
+        email,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to send reset email'
+      );
+    }
+  }
+);
+
+/**
+ * RESET PASSWORD
+ * POST /api/auth/reset-password
+ */
+export const resetPassword = createAsyncThunk(
+  'auth/resetPassword',
+  async ({ token, newPassword }, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.post('/api/auth/reset-password', {
+        token,
+        newPassword,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to reset password'
+      );
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
@@ -161,6 +205,8 @@ const authSlice = createSlice({
     emailVerificationStatus: 'idle', // 'idle' | 'pending' | 'verified' | 'failed'
     emailVerificationError: null,
     pendingEmail: null, // Store email awaiting verification
+    passwordResetStatus: 'idle', // 'idle' | 'pending' | 'succeeded' | 'failed'
+    passwordResetError: null,
   },
   reducers: {
     logout(state) {
@@ -175,6 +221,10 @@ const authSlice = createSlice({
     mergeUser(state, action) {
       state.user = { ...(state.user || {}), ...(action.payload || {}) };
       state.isAuthenticated = !!state.user;
+    },
+    resetPasswordFlow(state) {
+      state.passwordResetStatus = 'idle';
+      state.passwordResetError = null;
     },
   },
   extraReducers: (builder) => {
@@ -270,9 +320,36 @@ const authSlice = createSlice({
         state.bootstrapStatus = 'failed';
         state.user = null;
         state.isAuthenticated = false;
+      })
+
+      // request password reset
+      .addCase(requestPasswordReset.pending, (state) => {
+        state.passwordResetStatus = 'pending';
+        state.passwordResetError = null;
+      })
+      .addCase(requestPasswordReset.fulfilled, (state) => {
+        state.passwordResetStatus = 'succeeded';
+      })
+      .addCase(requestPasswordReset.rejected, (state, action) => {
+        state.passwordResetStatus = 'failed';
+        state.passwordResetError = action.payload;
+      })
+
+      // reset password (confirm new password with token)
+      .addCase(resetPassword.pending, (state) => {
+        state.passwordResetStatus = 'pending';
+        state.passwordResetError = null;
+      })
+      .addCase(resetPassword.fulfilled, (state) => {
+        state.passwordResetStatus = 'succeeded';
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.passwordResetStatus = 'failed';
+        state.passwordResetError = action.payload;
       });
   },
 });
 
-export const { logout, resetEmailVerification, mergeUser } = authSlice.actions;
+export const { logout, resetEmailVerification, mergeUser, resetPasswordFlow } =
+  authSlice.actions;
 export default authSlice.reducer;

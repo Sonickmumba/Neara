@@ -5,7 +5,10 @@ const { validationResult } = require('express-validator');
 
 const pool = require('../config/database');
 const { generateId } = require('../utils/helpers');
-const { sendVerificationEmail } = require('../utils/emailService');
+const {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} = require('../utils/emailService');
 const { sendVerificationSms } = require('../utils/smsService');
 
 let phoneVerificationSchemaReadyPromise = null;
@@ -628,8 +631,9 @@ exports.requestPasswordReset = async (req, res) => {
         { expiresIn: '1h' }
       );
 
-      // TODO: Send email with reset link
-      console.log(`Password reset token for ${email}: ${resetToken}`);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+      await sendPasswordResetEmail(email, resetLink);
     }
   } catch (error) {
     console.error('Password reset request error:', error);

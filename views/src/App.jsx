@@ -15,6 +15,7 @@ import { LocationPermission } from './features/splash/location/LocationPermissio
 import { InterestsSelectionScreen } from './features/interest/InterestsSelection';
 import { LoginSignup } from './features/loginSignup/LoginSignup';
 import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerification';
+import { ResetPasswordPage } from './features/loginSignup/ResetPasswordPage';
 import { HomeFeed } from './features/homeScreen/HomeFeed';
 import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
 import { Favorites } from './features/homeScreen/Favorites';
@@ -62,6 +63,7 @@ function App() {
           />
           <Route path="/loginSignup" element={<LoginSignup />} />
           <Route path="/verifyPhone" element={<PhoneVerificationScreen />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route path="/homeFeed" element={<HomeFeedLayout />}>
             <Route index element={<HomeFeed />} />
