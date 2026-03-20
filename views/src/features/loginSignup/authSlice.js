@@ -194,6 +194,27 @@ export const resetPassword = createAsyncThunk(
   }
 );
 
+/**
+ * CHANGE PASSWORD (authenticated)
+ * PATCH /api/auth/change-password
+ */
+export const changePassword = createAsyncThunk(
+  'auth/changePassword',
+  async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.patch('/api/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Failed to change password'
+      );
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
@@ -207,6 +228,8 @@ const authSlice = createSlice({
     pendingEmail: null, // Store email awaiting verification
     passwordResetStatus: 'idle', // 'idle' | 'pending' | 'succeeded' | 'failed'
     passwordResetError: null,
+    changePasswordStatus: 'idle', // 'idle' | 'pending' | 'succeeded' | 'failed'
+    changePasswordError: null,
   },
   reducers: {
     logout(state) {
@@ -225,6 +248,10 @@ const authSlice = createSlice({
     resetPasswordFlow(state) {
       state.passwordResetStatus = 'idle';
       state.passwordResetError = null;
+    },
+    resetChangePassword(state) {
+      state.changePasswordStatus = 'idle';
+      state.changePasswordError = null;
     },
   },
   extraReducers: (builder) => {
@@ -346,10 +373,23 @@ const authSlice = createSlice({
       .addCase(resetPassword.rejected, (state, action) => {
         state.passwordResetStatus = 'failed';
         state.passwordResetError = action.payload;
+      })
+
+      // change password (authenticated user)
+      .addCase(changePassword.pending, (state) => {
+        state.changePasswordStatus = 'pending';
+        state.changePasswordError = null;
+      })
+      .addCase(changePassword.fulfilled, (state) => {
+        state.changePasswordStatus = 'succeeded';
+      })
+      .addCase(changePassword.rejected, (state, action) => {
+        state.changePasswordStatus = 'failed';
+        state.changePasswordError = action.payload;
       });
   },
 });
 
-export const { logout, resetEmailVerification, mergeUser, resetPasswordFlow } =
+export const { logout, resetEmailVerification, mergeUser, resetPasswordFlow, resetChangePassword } =
   authSlice.actions;
 export default authSlice.reducer;
