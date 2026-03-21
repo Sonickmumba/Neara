@@ -98,6 +98,7 @@ export function ChatConversationScreen() {
       .map((x) => x[0])
       .join('')
       .toUpperCase(),
+    avatarUrl: conversationMeta?.partner?.profile_image_url || null,
     listing: listingTitle,
     rating: null,
     isVerified: false,
@@ -535,9 +536,18 @@ export function ChatConversationScreen() {
               >
                 <div className="relative flex-shrink-0">
 
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-                    {contact.avatar}
-                  </div>
+                  {contact.avatarUrl ? (
+                    <img
+                      src={contact.avatarUrl}
+                      alt={contact.name}
+                      loading="lazy"
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
+                      {contact.avatar}
+                    </div>
+                  )}
                   
                   {contact.isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
@@ -619,10 +629,19 @@ export function ChatConversationScreen() {
               {message.sender === 'them' && (
                 <div className="w-8 mr-2 flex-shrink-0">
                   {showAvatar && (
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                      {contact.avatar}
-                    </div>
-                  )}
+                      contact.avatarUrl ? (
+                        <img
+                          src={contact.avatarUrl}
+                          alt={contact.name}
+                          loading="lazy"
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                          {contact.avatar}
+                        </div>
+                      )
+                    )}
                 </div>
               )}
 
