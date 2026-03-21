@@ -534,9 +534,11 @@ export function ChatConversationScreen() {
                 className="flex items-center gap-3 flex-1 min-w-0 hover:bg-gray-50 rounded-lg p-2 -ml-2 transition-colors"
               >
                 <div className="relative flex-shrink-0">
+
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
                     {contact.avatar}
                   </div>
+                  
                   {contact.isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                   )}
