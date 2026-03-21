@@ -162,8 +162,6 @@ export function UserProfileScreen() {
 
   if (!profile || !stats) return null;
 
-  console.log('Rendering UserProfileScreen for user:', profile);
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
