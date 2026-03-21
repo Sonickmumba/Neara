@@ -9,9 +9,7 @@ export function ListingsFeed({ listings }) {
   if (!listings || listings.length === 0) {
     return <p className="text-gray-600 p-6">No listings available.</p>;
   }
-
-  console.log('Rendering ListingsFeed with listings:', listings);
-
+  
   return (
     <>
       {listings.map((listing) => (
