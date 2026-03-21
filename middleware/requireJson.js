@@ -30,7 +30,8 @@ module.exports = function requireJson(req, res, next) {
 
   // No body → nothing to enforce (bodyless DELETE, POST with no payload, etc.)
   const contentLength = parseInt(req.headers['content-length'] || '0', 10);
-  const hasBody = contentLength > 0 || Boolean(req.headers['transfer-encoding']);
+  const hasBody =
+    contentLength > 0 || Boolean(req.headers['transfer-encoding']);
   if (!hasBody) return next();
 
   const ct = req.headers['content-type'] || '';
@@ -45,4 +46,3 @@ module.exports = function requireJson(req, res, next) {
 
   return next();
 };
-
