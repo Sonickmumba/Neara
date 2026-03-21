@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 
 import apiClient from '../../services/api';
 import { ReputationBadge } from '../../components/ReputableBadge';
+
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
 const PAGE_SIZE = 40;
@@ -75,6 +77,9 @@ export function ChatConversationScreen() {
   const typingDebounceRef = useRef(null); // Debounce typing emit
 
   const [messages, setMessages] = useState([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const textareaRef = useRef(null);
+  const emojiPickerRef = useRef(null);
 
   const partnerName =
     conversationMeta?.partner?.name || location.state?.partnerName || 'User';
@@ -134,6 +139,43 @@ export function ChatConversationScreen() {
       }
     };
   }, []);
+
+  // Emoji picker: insert emoji at cursor position
+  const handleEmojiClick = useCallback(
+    (emojiData) => {
+      const emoji = emojiData.emoji;
+      const textarea = textareaRef.current;
+      const start = textarea?.selectionStart ?? messageText.length;
+      const end = textarea?.selectionEnd ?? messageText.length;
+      const next =
+        messageText.slice(0, start) + emoji + messageText.slice(end);
+      setMessageText(next);
+      setShowEmojiPicker(false);
+      requestAnimationFrame(() => {
+        textarea?.focus();
+        textarea?.setSelectionRange(
+          start + emoji.length,
+          start + emoji.length
+        );
+      });
+    },
+    [messageText]
+  );
+
+  // Emoji picker: close on outside click
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClickOutside = (e) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(e.target)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   useEffect(() => {
     if (!restoreScrollRef.current || !messagesListRef.current) return;
@@ -751,9 +793,10 @@ export function ChatConversationScreen() {
             <Paperclip className="w-5 h-5 text-gray-600" />
           </button>
 
-          {/* Input Field */}
-          <div className="flex-1 bg-gray-100 rounded-3xl px-4 py-2">
+          {/* Input Field + Emoji Button */}
+          <div className="relative flex-1 bg-gray-100 rounded-3xl px-4 py-2 flex items-end gap-2">
             <textarea
+              ref={textareaRef}
               value={messageText}
               onChange={(e) => {
                 setMessageText(e.target.value);
@@ -795,23 +838,51 @@ export function ChatConversationScreen() {
               }}
               placeholder="Type a message..."
               rows={1}
-              className="w-full bg-transparent resize-none focus:outline-none max-h-32"
+              className="flex-1 bg-transparent resize-none focus:outline-none max-h-32"
               style={{ minHeight: '24px' }}
             />
+
+            {/* Emoji Toggle Button */}
+            <div className="relative flex-shrink-0 self-end mb-0.5">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                aria-label="Open emoji picker"
+                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <Smile className="w-5 h-5 text-gray-500" />
+              </button>
+
+              {/* Emoji Picker Popup */}
+              {showEmojiPicker && (
+                <div
+                  ref={emojiPickerRef}
+                  className="absolute bottom-full right-0 mb-2 z-50"
+                >
+                  <Suspense
+                    fallback={
+                      <div className="w-64 h-80 bg-white rounded-xl border border-gray-200 shadow-lg animate-pulse" />
+                    }
+                  >
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      lazyLoadEmojis
+                    />
+                  </Suspense>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Send/Emoji Button */}
-          {messageText.trim() ? (
+          {/* Send Button */}
+          {messageText.trim() && (
             <button
               onClick={handleSend}
               disabled={isSending}
+              aria-label="Send message"
               className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors flex-shrink-0 mb-1 disabled:opacity-50"
             >
               <Send className="w-5 h-5 text-white" />
-            </button>
-          ) : (
-            <button className="p-2.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 mb-1">
-              <Smile className="w-5 h-5 text-gray-600" />
             </button>
           )}
         </div>
