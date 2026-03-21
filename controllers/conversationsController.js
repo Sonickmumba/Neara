@@ -105,10 +105,15 @@ exports.getUserConversations = async (req, res, next) => {
           ELSE u1.total_ratings
         END AS partner_total_ratings,
 
-        CASE 
+        CASE
           WHEN c.participant1_id = $1 THEN c.participant2_id
           ELSE c.participant1_id
         END AS partner_id,
+
+        CASE
+          WHEN c.participant1_id = $1 THEN u2.profile_image_url
+          ELSE u1.profile_image_url
+        END AS partner_profile_image_url,
 
         (
           SELECT m.content
@@ -473,7 +478,12 @@ exports.getConversationById = async (req, res, next) => {
         CASE
           WHEN c.participant1_id = $1 THEN u2.name
           ELSE u1.name
-        END AS partner_name
+        END AS partner_name,
+
+        CASE
+          WHEN c.participant1_id = $1 THEN u2.profile_image_url
+          ELSE u1.profile_image_url
+        END AS partner_image_url
 
       FROM conversations c
       JOIN listings l ON l.id = c.listing_id
@@ -499,6 +509,7 @@ exports.getConversationById = async (req, res, next) => {
         partner: {
           id: rows[0].partner_id,
           name: rows[0].partner_name,
+          profile_image_url: rows[0].partner_image_url || null,
         },
         listing: {
           id: rows[0].listing_id,
