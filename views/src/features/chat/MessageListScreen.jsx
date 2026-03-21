@@ -407,7 +407,6 @@ export function MessageListScreen() {
                 >
                   {/* Avatar with online indicator */}
                   <div className="relative flex-shrink-0">
-
                     {chat.partner_profile_image_url ? (
                       <img
                         src={chat.partner_profile_image_url}
