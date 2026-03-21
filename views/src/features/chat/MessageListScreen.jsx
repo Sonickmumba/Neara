@@ -407,9 +407,11 @@ export function MessageListScreen() {
                 >
                   {/* Avatar with online indicator */}
                   <div className="relative flex-shrink-0">
+
                     <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
                       {initialsFromName(chat.partner_name)}
                     </div>
+
                     {Number(chat.unread_count) > 0 && (
                       <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white">
                         {chat.unread_count}
