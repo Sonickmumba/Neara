@@ -381,6 +381,7 @@ const validateCreateTrade = [
     .isUUID()
     .withMessage('Invalid owner ID'),
   body('requesterOffer')
+    .trim()
     .notEmpty()
     .withMessage('Offer details are required')
     .isLength({ max: 2000 })
@@ -396,12 +397,14 @@ const validateCreateTrade = [
     .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
     .withMessage('Invalid trade time format'),
   body('location')
+    .trim()
     .notEmpty()
     .withMessage('Location is required')
     .isLength({ max: 255 })
     .withMessage('Location is too long'),
   body('notes')
     .optional({ nullable: true })
+    .trim()
     .isLength({ max: 2000 })
     .withMessage('Notes too long'),
   handleValidationErrors,

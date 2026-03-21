@@ -39,6 +39,7 @@ const passport = require('passport');
 const db = require('./config/database');
 
 const securityHeaders = require('./middleware/securityHeaders');
+const requireJson = require('./middleware/requireJson');
 
 // imports routes here
 const authRoutes = require('./routes/authRoutes');
@@ -89,9 +90,9 @@ app.use(
     resave: false,
     saveUninitialized: true, // Changed to true to ensure session is saved even if unmodified
     cookie: {
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
@@ -104,6 +105,9 @@ app.use(passport.session());
 // Middleware to parse JSON requests here
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Reject mutating requests with wrong Content-Type (CSRF hardening)
+app.use(requireJson);
 
 // API Routes here
 app.use('/api/auth', authRoutes);
