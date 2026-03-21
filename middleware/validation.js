@@ -341,10 +341,20 @@ const validateSendMessage = [
     .trim()
     .isLength({ max: 5000 })
     .withMessage('Message too long'),
+  body('attachment_url')
+    .optional()
+    .isURL()
+    .withMessage('Invalid attachment URL'),
+  body('attachment_type')
+    .optional()
+    .isIn(['image', 'document'])
+    .withMessage('attachment_type must be "image" or "document"'),
   body().custom((_, { req }) => {
-    const value = req.body.content || req.body.message;
-    if (!value || !String(value).trim()) {
-      throw new Error('Message cannot be empty');
+    const textValue = req.body.content || req.body.message;
+    const hasText = textValue && String(textValue).trim();
+    const hasAttachment = req.body.attachment_url;
+    if (!hasText && !hasAttachment) {
+      throw new Error('Message must have content or an attachment');
     }
     return true;
   }),

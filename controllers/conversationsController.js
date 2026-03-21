@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const { generateId, timeAgo } = require('../utils/helpers');
+const { uploadToCloudinary } = require('../utils/imageService');
 
 // Get user's conversations
 exports.getUserConversations = async (req, res, next) => {
@@ -362,13 +363,16 @@ exports.sendMessage = async (req, res, next) => {
   try {
     const { conversationId } = req.params;
     const content = req.body.content || req.body.message;
+    const { attachment_url, attachment_type, attachment_name } = req.body;
     const userId = req.user.id;
     const io = req.app.get('io');
 
-    if (!content || !String(content).trim()) {
+    const trimmedContent = content ? String(content).trim() : null;
+
+    if (!trimmedContent && !attachment_url) {
       return res.status(400).json({
         success: false,
-        message: 'Message content is required',
+        message: 'Message must have content or an attachment',
       });
     }
 
@@ -387,8 +391,17 @@ exports.sendMessage = async (req, res, next) => {
     // create message
     const messageId = generateId();
     await pool.query(
-      `INSERT INTO messages (id, conversation_id, sender_id, content ) VALUES ($1, $2, $3, $4)`,
-      [messageId, conversationId, userId, String(content).trim()]
+      `INSERT INTO messages (id, conversation_id, sender_id, content, attachment_url, attachment_type, attachment_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        messageId,
+        conversationId,
+        userId,
+        trimmedContent || null,
+        attachment_url || null,
+        attachment_type || null,
+        attachment_name || null,
+      ]
     );
 
     // Update conversation's last_message_at
@@ -417,6 +430,12 @@ exports.sendMessage = async (req, res, next) => {
     );
     const senderName = senderResult.rows[0]?.name || 'Unknown User';
 
+    const notificationDescription = trimmedContent
+      ? trimmedContent.substring(0, 100)
+      : attachment_type === 'image'
+        ? '📷 Image'
+        : '📎 Attachment';
+
     const notificationId = generateId();
     await pool.query(
       `INSERT INTO notifications (id, user_id, type, title, description, reference_id)
@@ -426,7 +445,7 @@ exports.sendMessage = async (req, res, next) => {
         recipientId,
         'message',
         `New message from ${senderName}`,
-        content.substring(0, 100),
+        notificationDescription,
         conversationId,
       ]
     );
@@ -457,6 +476,74 @@ exports.sendMessage = async (req, res, next) => {
 };
 
 // verify if this is needed
+
+// Upload attachment to Cloudinary and return the URL
+exports.sendAttachment = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+      });
+    }
+
+    // Check user is part of the conversation
+    const conversationResult = await pool.query(
+      `SELECT id FROM conversations WHERE id = $1 AND (participant1_id = $2 OR participant2_id = $2)`,
+      [conversationId, userId]
+    );
+    if (conversationResult.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    const { buffer, mimetype, originalname } = req.file;
+    const isImage = mimetype.startsWith('image/');
+    const attachmentType = isImage ? 'image' : 'document';
+
+    // Client-side size limits are enforced here too
+    const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+    const MAX_DOC_BYTES = 5 * 1024 * 1024;
+    const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_DOC_BYTES;
+    if (buffer.length > maxBytes) {
+      return res.status(400).json({
+        success: false,
+        message: `File too large. Maximum size is ${isImage ? '10' : '5'} MB.`,
+      });
+    }
+
+    const uploadOptions = isImage
+      ? {
+          transformation: [
+            { width: 1920, height: 1920, crop: 'limit' },
+            { fetch_format: 'auto', quality: 'auto' },
+          ],
+        }
+      : { resource_type: 'raw' };
+
+    const result = await uploadToCloudinary(
+      buffer,
+      'neara-chat-attachments',
+      uploadOptions
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        attachment_url: result.url,
+        attachment_type: attachmentType,
+        attachment_name: originalname,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.getConversationById = async (req, res, next) => {
   const { conversationId } = req.params;

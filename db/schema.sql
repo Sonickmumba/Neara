@@ -189,12 +189,21 @@ CREATE TABLE messages (
     id VARCHAR(36) PRIMARY KEY,
     conversation_id VARCHAR(36) NOT NULL,
     sender_id VARCHAR(36) NOT NULL,
-    content TEXT NOT NULL,
+    content TEXT,
+    attachment_url TEXT,
+    attachment_type VARCHAR(20),
+    attachment_name TEXT,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Migration: run these against an existing database
+-- ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+-- ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type VARCHAR(20);
+-- ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+-- ALTER TABLE messages ALTER COLUMN content DROP NOT NULL;
 
 CREATE INDEX idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX idx_messages_sender ON messages(sender_id);

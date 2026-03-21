@@ -1,6 +1,7 @@
 const express = require('express');
 const conversationsController = require('../controllers/conversationsController');
 const ensureAuth = require('../middleware/auth');
+const { uploadChatAttachment } = require('../utils/imageService');
 const {
   validateCreateConversation,
   validateSendMessage,
@@ -27,6 +28,13 @@ router.get('/:conversationId', conversationsController.getConversationById);
 
 // Get messages in conversation
 router.get('/:conversationId/messages', conversationsController.getMessages);
+
+// Upload attachment (image or document) to Cloudinary
+router.post(
+  '/:conversationId/attachments',
+  uploadChatAttachment.single('file'),
+  conversationsController.sendAttachment
+);
 
 // Send message
 router.post(

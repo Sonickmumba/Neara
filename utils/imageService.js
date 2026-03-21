@@ -101,8 +101,31 @@ const deleteFromCloudinary = (publicId) => {
   });
 };
 
+// File filter for chat attachments (images + documents)
+const chatAttachmentFilter = (req, file, cb) => {
+  const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
+  const allowedDocTypes = /pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document|plain/;
+  const isImage = allowedImageTypes.test(file.mimetype) && allowedImageTypes.test(path.extname(file.originalname).toLowerCase());
+  const isDoc = allowedDocTypes.test(file.mimetype);
+  if (isImage || isDoc) {
+    return cb(null, true);
+  }
+  cb(new Error('Only images (JPEG, PNG, WebP, GIF) and documents (PDF, DOC, DOCX, TXT) are allowed!'), false);
+};
+
+// Multer instance for chat attachments
+const uploadChatAttachment = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10 MB for images, validated per type in controller
+    files: 1,
+  },
+  fileFilter: chatAttachmentFilter,
+});
+
 module.exports = {
   upload,
+  uploadChatAttachment,
   uploadToCloudinary,
   uploadMultipleToCloudinary,
   deleteFromCloudinary,
