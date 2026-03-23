@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const { generateId, timeAgo } = require('../utils/helpers');
 const { uploadToCloudinary } = require('../utils/imageService');
+const { sendPushToUser } = require('../utils/pushService');
 
 // Get user's conversations
 exports.getUserConversations = async (req, res, next) => {
@@ -463,6 +464,28 @@ exports.sendMessage = async (req, res, next) => {
     // Broadcast via Socket.IO to the room
     if (io) {
       io.to(conversationId).emit('new_message', newMessage);
+    }
+
+    // Send Web Push notification if the recipient is not actively viewing this conversation
+    const presenceMap = io?.presenceMap;
+    const recipientIsPresent = presenceMap
+      ?.get(conversationId)
+      ?.has(String(recipientId));
+
+    if (!recipientIsPresent) {
+      const pushBody = trimmedContent
+        ? trimmedContent.substring(0, 120)
+        : attachment_type === 'image'
+          ? '📷 Sent an image'
+          : '📎 Sent an attachment';
+
+      // Fire-and-forget — does not block the HTTP response
+      sendPushToUser(recipientId, {
+        title: `New message from ${senderName}`,
+        body: pushBody,
+        url: `/messages/${conversationId}`,
+        conversationId,
+      });
     }
 
     res.status(201).json({
