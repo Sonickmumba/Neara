@@ -397,5 +397,22 @@ INSERT INTO interests (id, name, emoji) VALUES
 ('transport','Transportation','🚗'),
 ('events','Events & Community','🎉');
 
+-- =====================================================
+-- PUSH SUBSCRIPTIONS (Web Push / VAPID)
+-- =====================================================
+
+CREATE TABLE push_subscriptions (
+    id          SERIAL PRIMARY KEY,
+    user_id     VARCHAR(36) NOT NULL,
+    endpoint    TEXT NOT NULL,
+    p256dh      TEXT NOT NULL,
+    auth        TEXT NOT NULL,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (user_id, endpoint)
+);
+
+CREATE INDEX idx_push_subs_user ON push_subscriptions(user_id);
+
 
 COMMIT;
