@@ -1,16 +1,33 @@
 BEGIN;
 
 -- =====================================================
--- ENUM TYPES
+-- ENUM TYPES (idempotent — skip if already exists)
 -- =====================================================
 
-CREATE TYPE listing_type AS ENUM ('offer', 'need');
-CREATE TYPE listing_category AS ENUM ('skills', 'goods', 'services');
-CREATE TYPE listing_status AS ENUM ('active', 'completed', 'cancelled');
+DO $$ BEGIN
+  CREATE TYPE listing_type AS ENUM ('offer', 'need');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE trade_status AS ENUM ('pending', 'accepted', 'completed', 'cancelled');
+DO $$ BEGIN
+  CREATE TYPE listing_category AS ENUM ('skills', 'goods', 'services');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE notification_type AS ENUM ('message', 'trade', 'review', 'listing');
+DO $$ BEGIN
+  CREATE TYPE listing_status AS ENUM ('active', 'completed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE trade_status AS ENUM ('pending', 'accepted', 'completed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE notification_type AS ENUM ('message', 'trade', 'review', 'listing');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- =====================================================
 -- UPDATED_AT TRIGGER FUNCTION
@@ -28,7 +45,7 @@ $$ LANGUAGE plpgsql;
 -- USERS
 -- =====================================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -48,10 +65,11 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_phone ON users(phone);
-CREATE INDEX idx_users_location ON users(location_lat, location_lng);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+CREATE INDEX IF NOT EXISTS idx_users_location ON users(location_lat, location_lng);
 
+DROP TRIGGER IF EXISTS trg_users_updated ON users;
 CREATE TRIGGER trg_users_updated
 BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -60,7 +78,7 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 -- EMAIL VERIFICATION CODES
 -- =====================================================
 
-CREATE TABLE email_verification_codes (
+CREATE TABLE IF NOT EXISTS email_verification_codes (
     id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
     code VARCHAR(6) NOT NULL,
@@ -68,14 +86,14 @@ CREATE TABLE email_verification_codes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_email_verification_email ON email_verification_codes(email);
-CREATE INDEX idx_email_verification_expires ON email_verification_codes(expires_at);
+CREATE INDEX IF NOT EXISTS idx_email_verification_email ON email_verification_codes(email);
+CREATE INDEX IF NOT EXISTS idx_email_verification_expires ON email_verification_codes(expires_at);
 
 -- =====================================================
 -- PHONE VERIFICATION CODES
 -- =====================================================
 
-CREATE TABLE phone_verification_codes (
+CREATE TABLE IF NOT EXISTS phone_verification_codes (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     phone VARCHAR(20) NOT NULL,
@@ -88,17 +106,17 @@ CREATE TABLE phone_verification_codes (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_phone_verification_user_created
+CREATE INDEX IF NOT EXISTS idx_phone_verification_user_created
 ON phone_verification_codes(user_id, created_at DESC);
 
-CREATE INDEX idx_phone_verification_expires
+CREATE INDEX IF NOT EXISTS idx_phone_verification_expires
 ON phone_verification_codes(expires_at);
 
 -- =====================================================
 -- INTERESTS
 -- =====================================================
 
-CREATE TABLE interests (
+CREATE TABLE IF NOT EXISTS interests (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     emoji VARCHAR(10) NOT NULL,
@@ -109,7 +127,7 @@ CREATE TABLE interests (
 -- USER_INTERESTS
 -- =====================================================
 
-CREATE TABLE user_interests (
+CREATE TABLE IF NOT EXISTS user_interests (
     user_id VARCHAR(36) NOT NULL,
     interest_id VARCHAR(36) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -122,7 +140,7 @@ CREATE TABLE user_interests (
 -- LISTINGS
 -- =====================================================
 
-CREATE TABLE listings (
+CREATE TABLE IF NOT EXISTS listings (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     type listing_type NOT NULL,
@@ -132,7 +150,7 @@ CREATE TABLE listings (
     status listing_status DEFAULT 'active',
     location_lat DECIMAL(10,8),
     location_lng DECIMAL(11,8),
-    image_url TEXT,
+    image_urls JSON DEFAULT '[]'::json,
     responses_count INT DEFAULT 0,
     favorites_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -140,27 +158,23 @@ CREATE TABLE listings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_listings_user ON listings(user_id);
-CREATE INDEX idx_listings_type ON listings(type);
-CREATE INDEX idx_listings_category ON listings(category);
-CREATE INDEX idx_listings_status ON listings(status);
-CREATE INDEX idx_listings_location ON listings(location_lat, location_lng);
-CREATE INDEX idx_listings_created ON listings(created_at);
+CREATE INDEX IF NOT EXISTS idx_listings_user ON listings(user_id);
+CREATE INDEX IF NOT EXISTS idx_listings_type ON listings(type);
+CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
+CREATE INDEX IF NOT EXISTS idx_listings_location ON listings(location_lat, location_lng);
+CREATE INDEX IF NOT EXISTS idx_listings_created ON listings(created_at);
 
+DROP TRIGGER IF EXISTS trg_listings_updated ON listings;
 CREATE TRIGGER trg_listings_updated
 BEFORE UPDATE ON listings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- Run this SQL to migrate existing data
-ALTER TABLE listings ADD COLUMN image_urls JSON DEFAULT '[]'::json;
-UPDATE listings SET image_urls = CASE WHEN image_url IS NOT NULL AND image_url != '' THEN json_build_array(image_url) ELSE '[]'::json END;
-ALTER TABLE listings DROP COLUMN image_url;
 
 -- =====================================================
 -- CONVERSATIONS
 -- =====================================================
 
-CREATE TABLE conversations (
+CREATE TABLE IF NOT EXISTS conversations (
     id VARCHAR(36) PRIMARY KEY,
     listing_id VARCHAR(36) NOT NULL,
     participant1_id VARCHAR(36) NOT NULL,
@@ -173,10 +187,11 @@ CREATE TABLE conversations (
     FOREIGN KEY (participant2_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_conversations_listing ON conversations(listing_id);
-CREATE INDEX idx_conversations_participants ON conversations(participant1_id, participant2_id);
-CREATE INDEX idx_conversations_last_message ON conversations(last_message_at);
+CREATE INDEX IF NOT EXISTS idx_conversations_listing ON conversations(listing_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_participants ON conversations(participant1_id, participant2_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(last_message_at);
 
+DROP TRIGGER IF EXISTS trg_conversations_updated ON conversations;
 CREATE TRIGGER trg_conversations_updated
 BEFORE UPDATE ON conversations
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -185,7 +200,7 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 -- MESSAGES
 -- =====================================================
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
     id VARCHAR(36) PRIMARY KEY,
     conversation_id VARCHAR(36) NOT NULL,
     sender_id VARCHAR(36) NOT NULL,
@@ -199,21 +214,15 @@ CREATE TABLE messages (
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Migration: run these against an existing database
--- ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_url TEXT;
--- ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type VARCHAR(20);
--- ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name TEXT;
--- ALTER TABLE messages ALTER COLUMN content DROP NOT NULL;
-
-CREATE INDEX idx_messages_conversation ON messages(conversation_id);
-CREATE INDEX idx_messages_sender ON messages(sender_id);
-CREATE INDEX idx_messages_created ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
 
 -- =====================================================
 -- TRADES
 -- =====================================================
 
-CREATE TABLE trades (
+CREATE TABLE IF NOT EXISTS trades (
     id VARCHAR(36) PRIMARY KEY,
     listing_id VARCHAR(36) NOT NULL,
     requester_id VARCHAR(36) NOT NULL,
@@ -232,11 +241,12 @@ CREATE TABLE trades (
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_trades_listing ON trades(listing_id);
-CREATE INDEX idx_trades_requester ON trades(requester_id);
-CREATE INDEX idx_trades_owner ON trades(owner_id);
-CREATE INDEX idx_trades_status ON trades(status);
+CREATE INDEX IF NOT EXISTS idx_trades_listing ON trades(listing_id);
+CREATE INDEX IF NOT EXISTS idx_trades_requester ON trades(requester_id);
+CREATE INDEX IF NOT EXISTS idx_trades_owner ON trades(owner_id);
+CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 
+DROP TRIGGER IF EXISTS trg_trades_updated ON trades;
 CREATE TRIGGER trg_trades_updated
 BEFORE UPDATE ON trades
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -245,7 +255,7 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 -- REVIEWS
 -- =====================================================
 
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
     id VARCHAR(36) PRIMARY KEY,
     trade_id VARCHAR(36) NOT NULL,
     reviewer_id VARCHAR(36) NOT NULL,
@@ -260,15 +270,15 @@ CREATE TABLE reviews (
     UNIQUE (trade_id, reviewer_id)
 );
 
-CREATE INDEX idx_reviews_trade ON reviews(trade_id);
-CREATE INDEX idx_reviews_reviewee ON reviews(reviewee_id);
-CREATE INDEX idx_reviews_rating ON reviews(rating);
+CREATE INDEX IF NOT EXISTS idx_reviews_trade ON reviews(trade_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewee ON reviews(reviewee_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_rating ON reviews(rating);
 
 -- =====================================================
 -- NOTIFICATIONS
 -- =====================================================
 
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     type notification_type NOT NULL,
@@ -282,15 +292,15 @@ CREATE TABLE notifications (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_notifications_user ON notifications(user_id);
-CREATE INDEX idx_notifications_read ON notifications(is_read);
-CREATE INDEX idx_notifications_created ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
 
 -- =====================================================
 -- NOTIFICATION SETTINGS
 -- =====================================================
 
-CREATE TABLE notification_settings (
+CREATE TABLE IF NOT EXISTS notification_settings (
     user_id VARCHAR(36) PRIMARY KEY,
     push_enabled BOOLEAN DEFAULT TRUE,
     email_enabled BOOLEAN DEFAULT TRUE,
@@ -306,6 +316,7 @@ CREATE TABLE notification_settings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+DROP TRIGGER IF EXISTS trg_notification_settings_updated ON notification_settings;
 CREATE TRIGGER trg_notification_settings_updated
 BEFORE UPDATE ON notification_settings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -314,7 +325,7 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 -- USER PRIVACY SETTINGS
 -- =====================================================
 
-CREATE TABLE user_privacy_settings (
+CREATE TABLE IF NOT EXISTS user_privacy_settings (
     user_id VARCHAR(36) PRIMARY KEY,
     show_email BOOLEAN DEFAULT FALSE,
     show_phone BOOLEAN DEFAULT FALSE,
@@ -325,6 +336,7 @@ CREATE TABLE user_privacy_settings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+DROP TRIGGER IF EXISTS trg_user_privacy_settings_updated ON user_privacy_settings;
 CREATE TRIGGER trg_user_privacy_settings_updated
 BEFORE UPDATE ON user_privacy_settings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -333,7 +345,7 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 -- FAVORITES
 -- =====================================================
 
-CREATE TABLE favorites (
+CREATE TABLE IF NOT EXISTS favorites (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     listing_id VARCHAR(36) NOT NULL,
@@ -343,15 +355,15 @@ CREATE TABLE favorites (
     UNIQUE (user_id, listing_id)
 );
 
-CREATE INDEX idx_favorites_user ON favorites(user_id);
-CREATE INDEX idx_favorites_listing ON favorites(listing_id);
-CREATE INDEX idx_favorites_created ON favorites(created_at);
+CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_listing ON favorites(listing_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_created ON favorites(created_at);
 
 -- =====================================================
 -- USER BADGES
 -- =====================================================
 
-CREATE TABLE user_badges (
+CREATE TABLE IF NOT EXISTS user_badges (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     badge_id VARCHAR(50) NOT NULL,
@@ -361,27 +373,12 @@ CREATE TABLE user_badges (
     UNIQUE (user_id, badge_id)
 );
 
-CREATE INDEX idx_user_badges_user ON user_badges(user_id);
-CREATE INDEX idx_user_badges_badge ON user_badges(badge_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_badge ON user_badges(badge_id);
 
 -- =====================================================
 -- DEFAULT INTEREST SEED
 -- =====================================================
-
--- INSERT INTO interests (id, name, emoji) VALUES
--- ('int-1','Gardening','🌱'),
--- ('int-2','Cooking','🍳'),
--- ('int-3','Music','🎵'),
--- ('int-4','Sports','⚽'),
--- ('int-5','Arts & Crafts','🎨'),
--- ('int-6','Technology','💻'),
--- ('int-7','Pets','🐕'),
--- ('int-8','Fitness','🏃'),
--- ('int-9','Reading','📚'),
--- ('int-10','Photography','📷'),
--- ('int-11','DIY Projects','🔨'),
--- ('int-12','Languages','🗣️');
-
 
 INSERT INTO interests (id, name, emoji) VALUES
 ('skills','Skills & Teaching','💡'),
@@ -395,13 +392,14 @@ INSERT INTO interests (id, name, emoji) VALUES
 ('kids','Kids & Family','👶'),
 ('pets','Pets & Animals','🐕'),
 ('transport','Transportation','🚗'),
-('events','Events & Community','🎉');
+('events','Events & Community','🎉')
+ON CONFLICT (id) DO NOTHING;
 
 -- =====================================================
 -- PUSH SUBSCRIPTIONS (Web Push / VAPID)
 -- =====================================================
 
-CREATE TABLE push_subscriptions (
+CREATE TABLE IF NOT EXISTS push_subscriptions (
     id          SERIAL PRIMARY KEY,
     user_id     VARCHAR(36) NOT NULL,
     endpoint    TEXT NOT NULL,
@@ -412,7 +410,24 @@ CREATE TABLE push_subscriptions (
     UNIQUE (user_id, endpoint)
 );
 
-CREATE INDEX idx_push_subs_user ON push_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
 
+-- =====================================================
+-- USER ACTIVITIES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_activities (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    activity_type VARCHAR(50) NOT NULL,
+    reference_id VARCHAR(36),
+    reference_type VARCHAR(50),
+    data JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_activities_user ON user_activities(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_activities_created ON user_activities(created_at);
 
 COMMIT;
