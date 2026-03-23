@@ -61,7 +61,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
   },
 });
@@ -72,7 +72,7 @@ app.set('io', io);
 app.use(securityHeaders);
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
     exposedHeaders: [
       'X-RateLimit-Limit',
@@ -90,7 +90,7 @@ app.use(
     resave: false,
     saveUninitialized: true, // Changed to true to ensure session is saved even if unmodified
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.SECURE_COOKIE === 'true',
       httpOnly: true,
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000,
@@ -246,6 +246,13 @@ io.on('connection', (socket) => {
       }
     }
   });
+});
+
+
+// Serve React frontend
+app.use(express.static(path.join(__dirname, 'views/dist')));
+app.get('/{*path}', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views/dist', 'index.html'));
 });
 
 // 404 error handler
