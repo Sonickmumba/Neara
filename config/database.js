@@ -5,7 +5,10 @@ const { Pool } = require('pg');
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
     }
   : {
       user: process.env.DB_USER || 'postgres',
@@ -23,14 +26,14 @@ const pool = new Pool({
 });
 
 // Test connection
-pool.connect()
-  .then(client => {
+pool
+  .connect()
+  .then((client) => {
     console.log('✓ Neara Database connected successfully');
     client.release();
   })
-  .catch(err => {
+  .catch((err) => {
     console.error('Error connecting to Neara database:', err.message);
   });
-
 
 module.exports = pool;
