@@ -35,11 +35,15 @@ import { RequireAuth } from './components/RequireAuth';
 import { RequirePhoneVerified } from './components/RequirePhoneVerified';
 import { setupAuthInterceptor } from './services/api';
 import { fetchCurrentUser } from './features/loginSignup/authSlice';
+import { usePushNotifications } from './hooks/usePushNotifications';
 import { Toaster } from 'sonner';
 
 function App() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  // Registers the service worker and auto-subscribes if permission already granted
+  usePushNotifications();
 
   // Setup global auth interceptor for API calls
   useEffect(() => {
@@ -77,9 +81,9 @@ function App() {
               path="chat-list"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <MessageListScreen />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified> */}
                 </RequireAuth>
               }
             />
@@ -87,9 +91,9 @@ function App() {
               path="chat-conversation/:conversationId"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <ChatConversationScreen />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified> */}
                 </RequireAuth>
               }
             />
@@ -107,9 +111,9 @@ function App() {
               path="trade-management/:tradeId"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <TradeManagementScreen />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified>/ */}
                 </RequireAuth>
               }
             />
@@ -149,11 +153,11 @@ function App() {
               path="create-listing"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <CreateListing
                       navigate={(path, state) => navigate(path, { state })}
                     />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified> */}
                 </RequireAuth>
               }
             />
