@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
+// In production the frontend is served by Express on the same origin,
+// so an empty base URL makes all /api/* calls relative to the current host.
+// In development, set VITE_BASE_URL=http://localhost:3000 in views/.env
+// or rely on the Vite dev-server proxy in vite.config.js.
+const BASE_URL = import.meta.env.VITE_BASE_URL || '';
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
