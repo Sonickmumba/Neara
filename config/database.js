@@ -1,15 +1,25 @@
 const { Pool } = require('pg');
-require('dotenv').config;
+
+// DATABASE_URL takes priority (Render, Heroku, any 12-factor host).
+// Fall back to individual vars for local development.
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    }
+  : {
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      database: process.env.DB_NAME || 'Neara',
+      password: process.env.DB_PASSWORD || '',
+      port: Number(process.env.DB_PORT) || 5432,
+    };
 
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'Neara',
-  password: process.env.DB_PASSWORD || '',
-  port: process.env.DB_PORT || 5432,
+  ...poolConfig,
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000,
 });
 
 // Test connection
