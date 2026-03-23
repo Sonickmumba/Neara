@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "cd views && npm install --include=dev && npm run build",
+    "build": "npm install && cd views && npm install --include=dev && npm run build",
     "start": "node server.js",
     "db:init": "node db/initDb.js"
   },
