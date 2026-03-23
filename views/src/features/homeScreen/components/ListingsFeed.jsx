@@ -9,7 +9,7 @@ export function ListingsFeed({ listings }) {
   if (!listings || listings.length === 0) {
     return <p className="text-gray-600 p-6">No listings available.</p>;
   }
-
+  
   return (
     <>
       {listings.map((listing) => (
@@ -49,6 +49,14 @@ export function ListingsFeed({ listings }) {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
+
+              {listing.profile_image_url ? (
+                <img
+                  src={listing.profile_image_url}
+                  alt={`${listing.author_name ?? 'Unknown'}'s profile`}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-sm">
                   {(listing.author_name ?? 'Unknown')
                     .split(' ')
@@ -56,6 +64,8 @@ export function ListingsFeed({ listings }) {
                     .map((n) => n[0])
                     .join('')}
                 </div>
+              )}
+
                 <div>
                   <div className="text-sm font-medium mb-1">
                     {listing.author_name ?? 'Unknown'}

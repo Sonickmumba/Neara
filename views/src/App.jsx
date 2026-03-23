@@ -15,6 +15,7 @@ import { LocationPermission } from './features/splash/location/LocationPermissio
 import { InterestsSelectionScreen } from './features/interest/InterestsSelection';
 import { LoginSignup } from './features/loginSignup/LoginSignup';
 import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerification';
+import { ResetPasswordPage } from './features/loginSignup/ResetPasswordPage';
 import { HomeFeed } from './features/homeScreen/HomeFeed';
 import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
 import { Favorites } from './features/homeScreen/Favorites';
@@ -34,11 +35,15 @@ import { RequireAuth } from './components/RequireAuth';
 import { RequirePhoneVerified } from './components/RequirePhoneVerified';
 import { setupAuthInterceptor } from './services/api';
 import { fetchCurrentUser } from './features/loginSignup/authSlice';
+import { usePushNotifications } from './hooks/usePushNotifications';
 import { Toaster } from 'sonner';
 
 function App() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  // Registers the service worker and auto-subscribes if permission already granted
+  usePushNotifications();
 
   // Setup global auth interceptor for API calls
   useEffect(() => {
@@ -62,6 +67,7 @@ function App() {
           />
           <Route path="/loginSignup" element={<LoginSignup />} />
           <Route path="/verifyPhone" element={<PhoneVerificationScreen />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route path="/homeFeed" element={<HomeFeedLayout />}>
             <Route index element={<HomeFeed />} />
@@ -75,9 +81,9 @@ function App() {
               path="chat-list"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <MessageListScreen />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified> */}
                 </RequireAuth>
               }
             />
@@ -85,9 +91,9 @@ function App() {
               path="chat-conversation/:conversationId"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <ChatConversationScreen />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified> */}
                 </RequireAuth>
               }
             />
@@ -105,9 +111,9 @@ function App() {
               path="trade-management/:tradeId"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <TradeManagementScreen />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified>/ */}
                 </RequireAuth>
               }
             />
@@ -147,11 +153,11 @@ function App() {
               path="create-listing"
               element={
                 <RequireAuth>
-                  <RequirePhoneVerified>
+                  {/* <RequirePhoneVerified> */}
                     <CreateListing
                       navigate={(path, state) => navigate(path, { state })}
                     />
-                  </RequirePhoneVerified>
+                  {/* </RequirePhoneVerified> */}
                 </RequireAuth>
               }
             />

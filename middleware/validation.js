@@ -341,10 +341,20 @@ const validateSendMessage = [
     .trim()
     .isLength({ max: 5000 })
     .withMessage('Message too long'),
+  body('attachment_url')
+    .optional()
+    .isURL()
+    .withMessage('Invalid attachment URL'),
+  body('attachment_type')
+    .optional()
+    .isIn(['image', 'document'])
+    .withMessage('attachment_type must be "image" or "document"'),
   body().custom((_, { req }) => {
-    const value = req.body.content || req.body.message;
-    if (!value || !String(value).trim()) {
-      throw new Error('Message cannot be empty');
+    const textValue = req.body.content || req.body.message;
+    const hasText = textValue && String(textValue).trim();
+    const hasAttachment = req.body.attachment_url;
+    if (!hasText && !hasAttachment) {
+      throw new Error('Message must have content or an attachment');
     }
     return true;
   }),
@@ -371,6 +381,7 @@ const validateCreateTrade = [
     .isUUID()
     .withMessage('Invalid owner ID'),
   body('requesterOffer')
+    .trim()
     .notEmpty()
     .withMessage('Offer details are required')
     .isLength({ max: 2000 })
@@ -386,12 +397,14 @@ const validateCreateTrade = [
     .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
     .withMessage('Invalid trade time format'),
   body('location')
+    .trim()
     .notEmpty()
     .withMessage('Location is required')
     .isLength({ max: 255 })
     .withMessage('Location is too long'),
   body('notes')
     .optional({ nullable: true })
+    .trim()
     .isLength({ max: 2000 })
     .withMessage('Notes too long'),
   handleValidationErrors,

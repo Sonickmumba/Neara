@@ -1,5 +1,9 @@
 const pool = require('../config/database');
 const { calculateUserBadges } = require('../utils/helpers');
+const {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} = require('../utils/imageService');
 
 const DEFAULT_NOTIFICATION_SETTINGS = {
   push: true,
@@ -402,6 +406,69 @@ exports.updateUserProfile = async (req, res, next) => {
       success: true,
       message: 'Profile updated successfully',
       data: rows[0],
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateAvatar = async (req, res, next) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided',
+      });
+    }
+
+    // Fetch the existing profile_image_url so we can delete the old Cloudinary asset
+    const { rows: existing } = await pool.query(
+      'SELECT profile_image_url FROM users WHERE id = $1',
+      [userId]
+    );
+    const oldUrl = existing[0]?.profile_image_url || null;
+
+    // Upload to Cloudinary — avatar-optimised: square, face-detect crop, auto format/quality
+    const avatarTransformation = [
+      { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+      { fetch_format: 'auto', quality: 'auto' },
+    ];
+
+    const uploaded = await uploadToCloudinary(
+      req.file.buffer,
+      'neara-avatars',
+      {
+        transformation: avatarTransformation,
+      }
+    );
+
+    // Update DB
+    await pool.query(
+      'UPDATE users SET profile_image_url = $1, updated_at = NOW() WHERE id = $2',
+      [uploaded.url, userId]
+    );
+
+    // Fire-and-forget: delete old Cloudinary asset if it was a neara-avatar
+    if (oldUrl && oldUrl.includes('/neara-avatars/')) {
+      // Extract public_id from URL: everything after /upload/ up to (not including) the file extension
+      const match = oldUrl.match(/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/);
+      if (match) {
+        deleteFromCloudinary(match[1]).catch((err) =>
+          console.error('Failed to delete old avatar from Cloudinary:', err)
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Avatar updated successfully',
+      data: { profile_image_url: uploaded.url },
     });
   } catch (error) {
     next(error);

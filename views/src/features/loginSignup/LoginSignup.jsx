@@ -6,8 +6,10 @@ import {
   registerUser,
   sendVerificationEmail,
   resetEmailVerification,
+  resetPasswordFlow,
 } from './authSlice';
 import { EmailVerification } from './EmailVerification';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 import {
   ArrowLeft,
   Mail,
@@ -52,6 +54,7 @@ export function LoginSignup() {
   const isSubmitting = authStatus === 'loading';
   const [showVerificationUI, setShowVerificationUI] = useState(false);
   const [pendingEmail, setPendingEmail] = useState(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const [mode, setMode] = useState('login'); // 'login' or 'signup'
   const [showPassword, setShowPassword] = useState(false);
@@ -199,8 +202,15 @@ export function LoginSignup() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-8">
         <div className="max-w-md mx-auto">
-          {/* Show email verification UI if needed */}
-          {showVerificationUI && pendingEmail ? (
+          {/* Show forgot password UI */}
+          {showForgotPassword ? (
+            <ForgotPasswordModal
+              onBack={() => {
+                dispatch(resetPasswordFlow());
+                setShowForgotPassword(false);
+              }}
+            />
+          ) : showVerificationUI && pendingEmail ? (
             <EmailVerification
               email={pendingEmail}
               onVerified={() => {
@@ -535,6 +545,7 @@ export function LoginSignup() {
                   <div className="flex justify-end">
                     <button
                       type="button"
+                      onClick={() => setShowForgotPassword(true)}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                     >
                       Forgot password?

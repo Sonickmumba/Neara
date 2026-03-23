@@ -39,6 +39,7 @@ const passport = require('passport');
 const db = require('./config/database');
 
 const securityHeaders = require('./middleware/securityHeaders');
+const requireJson = require('./middleware/requireJson');
 
 // imports routes here
 const authRoutes = require('./routes/authRoutes');
@@ -51,16 +52,20 @@ const tradeRoutes = require('./routes/tradeRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const imageRoutes = require('./routes/imageRoutes');
+const pushRoutes = require('./routes/pushRoutes');
 
 const app = express();
 const server = http.createServer(app);
+
+// Trust the first proxy hop (required on Render, Heroku, etc. for correct IP + HTTPS detection)
+app.set('trust proxy', 1);
 /* ======================
    SOCKET.IO SETUP
 ====================== */
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
   },
 });
@@ -71,7 +76,7 @@ app.set('io', io);
 app.use(securityHeaders);
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
     exposedHeaders: [
       'X-RateLimit-Limit',
@@ -89,9 +94,9 @@ app.use(
     resave: false,
     saveUninitialized: true, // Changed to true to ensure session is saved even if unmodified
     cookie: {
-      secure: false,
+      secure: process.env.SECURE_COOKIE === 'true',
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
@@ -105,6 +110,9 @@ app.use(passport.session());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Reject mutating requests with wrong Content-Type (CSRF hardening)
+app.use(requireJson);
+
 // API Routes here
 app.use('/api/auth', authRoutes);
 app.use('/api/listings', listingsRoutes);
@@ -116,6 +124,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/push', pushRoutes);
 
 app.get('/api/status', (req, res) => {
   res.json({ success: true, message: 'API is running' });
@@ -140,16 +149,74 @@ app.get('/api/test-email', async (req, res) => {
 /* ======================
    SOCKET EVENTS
 ====================== */
+
+// Presence tracking (in-memory; swap for Redis adapter for multi-server deployments)
+// Map<conversationId, Map<userId, Set<socketId>>>
+const presenceMap = new Map();
+// Map<socketId, { userId, conversationId }>
+const socketMeta = new Map();
+
+// Expose presenceMap on the io instance so controllers can gate push notifications
+// without importing server.js (avoids circular deps).
+io.presenceMap = presenceMap;
+
+function addPresence(conversationId, userId, socketId) {
+  if (!presenceMap.has(conversationId))
+    presenceMap.set(conversationId, new Map());
+  const conv = presenceMap.get(conversationId);
+  if (!conv.has(userId)) conv.set(userId, new Set());
+  conv.get(userId).add(socketId);
+}
+
+// Returns true when the user has no remaining sockets in this conversation
+function removePresence(conversationId, userId, socketId) {
+  const conv = presenceMap.get(conversationId);
+  if (!conv) return false;
+  const sockets = conv.get(userId);
+  if (!sockets) return false;
+  sockets.delete(socketId);
+  if (sockets.size === 0) {
+    conv.delete(userId);
+    if (conv.size === 0) presenceMap.delete(conversationId);
+    return true;
+  }
+  return false;
+}
+
+function getOnlineUserIds(conversationId, excludeUserId) {
+  const conv = presenceMap.get(conversationId);
+  if (!conv) return [];
+  return Array.from(conv.keys()).filter((id) => id !== String(excludeUserId));
+}
+
 io.on('connection', (socket) => {
   console.log('🟢 Socket connected:', socket.id);
 
-  socket.on('join-conversation', (conversationId, ack) => {
+  // Accepts { conversationId, userId } (new) or plain conversationId string (legacy)
+  socket.on('join-conversation', (data, ack) => {
+    const conversationId =
+      typeof data === 'object' ? data.conversationId : data;
+    const userId = typeof data === 'object' ? String(data.userId || '') : null;
+
     if (!conversationId) {
       if (ack) ack(false);
       return;
     }
 
     socket.join(conversationId);
+
+    if (userId) {
+      addPresence(conversationId, userId, socket.id);
+      socketMeta.set(socket.id, { userId, conversationId });
+
+      // Tell the joiner who else is already online in this conversation
+      const onlineNow = getOnlineUserIds(conversationId, userId);
+      socket.emit('presence_snapshot', onlineNow);
+
+      // Tell everyone else that this user came online
+      socket.to(conversationId).emit('partner_online', { userId });
+    }
+
     if (ack) ack(true);
   });
 
@@ -175,7 +242,26 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('🔴 Socket disconnected:', socket.id);
+
+    const meta = socketMeta.get(socket.id);
+    if (meta) {
+      const { userId, conversationId } = meta;
+      const wasLastSocket = removePresence(conversationId, userId, socket.id);
+      socketMeta.delete(socket.id);
+
+      // Only broadcast offline when the user's last socket leaves (multi-tab safe)
+      if (wasLastSocket) {
+        socket.to(conversationId).emit('partner_offline', { userId });
+      }
+    }
   });
+});
+
+
+// Serve React frontend
+app.use(express.static(path.join(__dirname, 'views/dist')));
+app.get('/{*path}', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views/dist', 'index.html'));
 });
 
 // 404 error handler

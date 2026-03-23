@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { Loader2, ArrowDown } from 'lucide-react';
 
 import { fetchHomeFeed } from './homeFeedThunks';
 import {
@@ -9,6 +10,7 @@ import {
   selectActiveTab,
 } from './homeFeedSelectors';
 import { setActiveTab } from './homeFeedSlice';
+import { usePullToRefresh, THRESHOLD } from '../../hooks/usePullToRefresh';
 
 import { HomeHeader } from './components/HomeHeader';
 import { QuickActions } from './components/QuickActions';
@@ -54,6 +56,13 @@ export function HomeFeed() {
       dispatch(fetchHomeFeed());
     }
   }, [status, dispatch]);
+
+  // Pull-to-refresh: force a re-fetch regardless of current status
+  const handleRefresh = useCallback(
+    () => dispatch(fetchHomeFeed()),
+    [dispatch]
+  );
+  const { pullDistance, isRefreshing } = usePullToRefresh(handleRefresh);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -102,6 +111,38 @@ export function HomeFeed() {
         activeTab={activeTab}
         onTabChange={(tab) => dispatch(setActiveTab(tab))}
       />
+
+      {/* Pull-to-refresh indicator — visible during pull gesture and while refreshing */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div
+          data-testid="pull-refresh-indicator"
+          className="flex items-center justify-center py-3 overflow-hidden"
+          style={{
+            transform: `translateY(${pullDistance > 0 ? Math.round(pullDistance * 0.4) : 0}px)`,
+            transition: pullDistance > 0 ? 'none' : 'transform 0.2s ease',
+          }}
+        >
+          {isRefreshing ? (
+            <div className="flex items-center gap-2 text-blue-500">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm font-medium">Refreshing...</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-gray-400">
+              <ArrowDown
+                className={`w-5 h-5 transition-transform duration-200 ${
+                  pullDistance >= THRESHOLD ? 'rotate-180' : ''
+                }`}
+              />
+              <span className="text-sm">
+                {pullDistance >= THRESHOLD
+                  ? 'Release to refresh'
+                  : 'Pull to refresh'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       {showActivity && (
         <div className="bg-white border-b border-gray-200 p-4">
           <RecentActivity

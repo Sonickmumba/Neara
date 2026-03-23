@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -9,12 +9,17 @@ import {
   Video,
   Paperclip,
   Smile,
+  FileText,
+  X,
+  Loader2,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { toast } from 'sonner';
 
 import apiClient from '../../services/api';
 import { ReputationBadge } from '../../components/ReputableBadge';
+
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
 const SOCKET_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
 const PAGE_SIZE = 40;
@@ -47,6 +52,9 @@ function toUiMessage(message, currentUserId) {
     senderName: message.sender_name,
     conversationId: message.conversation_id,
     isOptimistic: !!message.isOptimistic,
+    attachmentUrl: message.attachment_url || null,
+    attachmentType: message.attachment_type || null,
+    attachmentName: message.attachment_name || null,
   };
 }
 
@@ -61,6 +69,8 @@ export function ChatConversationScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  // Set of userIds currently online in this conversation (populated by socket presence events)
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [error, setError] = useState(null);
@@ -73,10 +83,24 @@ export function ChatConversationScreen() {
   const typingDebounceRef = useRef(null); // Debounce typing emit
 
   const [messages, setMessages] = useState([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const textareaRef = useRef(null);
+  const emojiPickerRef = useRef(null);
+
+  // Attachment state
+  const [pendingAttachment, setPendingAttachment] = useState(null);
+  // { url, type, name, previewUrl }
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const attachmentInputRef = useRef(null);
 
   const partnerName =
     conversationMeta?.partner?.name || location.state?.partnerName || 'User';
   const partnerId = conversationMeta?.partner?.id || null;
+  // Derived: true when the partner's userId appears in the presence set.
+  // Uses String() so numeric and string IDs always compare correctly.
+  const isPartnerOnline = partnerId
+    ? onlineUserIds.has(String(partnerId))
+    : false;
   const listingTitle =
     conversationMeta?.listing?.title ||
     location.state?.listingTitle ||
@@ -91,11 +115,12 @@ export function ChatConversationScreen() {
       .map((x) => x[0])
       .join('')
       .toUpperCase(),
+    avatarUrl: conversationMeta?.partner?.profile_image_url || null,
     listing: listingTitle,
     rating: null,
     isVerified: false,
     totalRatings: null,
-    isOnline: isConnected,
+    isOnline: isPartnerOnline,
     hasActiveTrade: false,
   };
 
@@ -126,6 +151,111 @@ export function ChatConversationScreen() {
       }
     };
   }, []);
+
+  // Emoji picker: insert emoji at cursor position
+  const handleEmojiClick = useCallback(
+    (emojiData) => {
+      const emoji = emojiData.emoji;
+      const textarea = textareaRef.current;
+      const start = textarea?.selectionStart ?? messageText.length;
+      const end = textarea?.selectionEnd ?? messageText.length;
+      const next =
+        messageText.slice(0, start) + emoji + messageText.slice(end);
+      setMessageText(next);
+      setShowEmojiPicker(false);
+      requestAnimationFrame(() => {
+        textarea?.focus();
+        textarea?.setSelectionRange(
+          start + emoji.length,
+          start + emoji.length
+        );
+      });
+    },
+    [messageText]
+  );
+
+  // Emoji picker: close on outside click
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClickOutside = (e) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(e.target)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
+
+  // Attachment: handle file selection
+  const handleAttachmentChange = useCallback(
+    async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Reset input so the same file can be re-selected after removal
+      e.target.value = '';
+
+      const isImage = file.type.startsWith('image/');
+      const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+      const MAX_DOC_BYTES = 5 * 1024 * 1024;
+      const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const allowedDocTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+      ];
+
+      if (isImage && !allowedImageTypes.includes(file.type)) {
+        toast.error('Only JPEG, PNG, WebP, and GIF images are supported.');
+        return;
+      }
+      if (!isImage && !allowedDocTypes.includes(file.type)) {
+        toast.error('Only PDF, DOC, DOCX, and TXT documents are supported.');
+        return;
+      }
+      const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_DOC_BYTES;
+      if (file.size > maxBytes) {
+        toast.error(
+          `File too large. ${isImage ? 'Images' : 'Documents'} must be under ${isImage ? '10' : '5'} MB.`
+        );
+        return;
+      }
+
+      const previewUrl = isImage ? URL.createObjectURL(file) : null;
+
+      try {
+        setAttachmentUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await apiClient.post(
+          `/api/conversations/${conversationId}/attachments`,
+          formData
+        );
+
+        const { attachment_url, attachment_type, attachment_name } =
+          response.data.data;
+        setPendingAttachment({
+          url: attachment_url,
+          type: attachment_type,
+          name: attachment_name,
+          previewUrl,
+        });
+      } catch (err) {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        toast.error(
+          err.response?.data?.message || 'Failed to upload attachment.'
+        );
+      } finally {
+        setAttachmentUploading(false);
+      }
+    },
+    [conversationId]
+  );
 
   useEffect(() => {
     if (!restoreScrollRef.current || !messagesListRef.current) return;
@@ -282,12 +412,14 @@ export function ChatConversationScreen() {
 
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('join-conversation', conversationId);
+      // Send userId so the server can track our presence
+      socket.emit('join-conversation', { conversationId, userId: currentUser?.id });
     });
 
     socket.on('disconnect', () => {
       setIsConnected(false);
       setTypingUsers(new Map());
+      setOnlineUserIds(new Set()); // clear presence on disconnect
     });
 
     socket.on('new_message', (incomingMessage) => {
@@ -372,6 +504,29 @@ export function ChatConversationScreen() {
       });
     });
 
+    // Presence: server sends which userIds are already online when we join
+    socket.on('presence_snapshot', (onlineUserIdsList) => {
+      setOnlineUserIds(new Set(onlineUserIdsList.map(String)));
+    });
+
+    // Presence: a user came online in this conversation
+    socket.on('partner_online', ({ userId }) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        next.add(String(userId));
+        return next;
+      });
+    });
+
+    // Presence: a user's last socket left this conversation
+    socket.on('partner_offline', ({ userId }) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(String(userId));
+        return next;
+      });
+    });
+
     return () => {
       // Cleanup: clear all typing timeouts
       typingTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
@@ -380,6 +535,9 @@ export function ChatConversationScreen() {
       socket.off('new_message');
       socket.off('user_typing');
       socket.off('user_stopped_typing');
+      socket.off('presence_snapshot');
+      socket.off('partner_online');
+      socket.off('partner_offline');
       socket.disconnect();
       socketRef.current = null;
     };
@@ -387,7 +545,8 @@ export function ChatConversationScreen() {
 
   const handleSend = async () => {
     const trimmed = messageText.trim();
-    if (!trimmed || !conversationId || isSending) return;
+    if (!trimmed && !pendingAttachment) return;
+    if (!conversationId || isSending) return;
 
     // Emit stopped typing when sending
     if (socketRef.current && socketRef.current.connected) {
@@ -408,7 +567,7 @@ export function ChatConversationScreen() {
     const optimistic = {
       id: optimisticId,
       sender: 'me',
-      text: trimmed,
+      text: trimmed || null,
       time: formatMessageTime(new Date().toISOString()),
       read: false,
       createdAt: new Date().toISOString(),
@@ -416,17 +575,36 @@ export function ChatConversationScreen() {
       senderName: currentUser?.name || 'You',
       conversationId,
       isOptimistic: true,
+      attachmentUrl: pendingAttachment?.url || null,
+      attachmentType: pendingAttachment?.type || null,
+      attachmentName: pendingAttachment?.name || null,
     };
+
+    const attachmentToSend = pendingAttachment;
 
     setIsSending(true);
     setMessageText('');
+    setPendingAttachment(null);
     setMessages((prev) => [...prev, optimistic]);
 
     try {
+      const payload = {};
+      if (trimmed) payload.content = trimmed;
+      if (attachmentToSend) {
+        payload.attachment_url = attachmentToSend.url;
+        payload.attachment_type = attachmentToSend.type;
+        payload.attachment_name = attachmentToSend.name;
+      }
+
       const response = await apiClient.post(
         `/api/conversations/${conversationId}/messages`,
-        { content: trimmed }
+        payload
       );
+
+      // Revoke blob URL now that the message is saved
+      if (attachmentToSend?.previewUrl) {
+        URL.revokeObjectURL(attachmentToSend.previewUrl);
+      }
 
       const saved = response.data?.data;
       if (!saved) return;
@@ -442,7 +620,8 @@ export function ChatConversationScreen() {
     } catch (err) {
       console.error('Failed to send message:', err);
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      setMessageText(trimmed);
+      if (trimmed) setMessageText(trimmed);
+      if (attachmentToSend) setPendingAttachment(attachmentToSend);
       toast.error(err.response?.data?.message || 'Failed to send message');
     } finally {
       setIsSending(false);
@@ -499,9 +678,20 @@ export function ChatConversationScreen() {
                 className="flex items-center gap-3 flex-1 min-w-0 hover:bg-gray-50 rounded-lg p-2 -ml-2 transition-colors"
               >
                 <div className="relative flex-shrink-0">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-                    {contact.avatar}
-                  </div>
+
+                  {contact.avatarUrl ? (
+                    <img
+                      src={contact.avatarUrl}
+                      alt={contact.name}
+                      loading="lazy"
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
+                      {contact.avatar}
+                    </div>
+                  )}
+                  
                   {contact.isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                   )}
@@ -582,15 +772,24 @@ export function ChatConversationScreen() {
               {message.sender === 'them' && (
                 <div className="w-8 mr-2 flex-shrink-0">
                   {showAvatar && (
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                      {contact.avatar}
-                    </div>
-                  )}
+                      contact.avatarUrl ? (
+                        <img
+                          src={contact.avatarUrl}
+                          alt={contact.name}
+                          loading="lazy"
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                          {contact.avatar}
+                        </div>
+                      )
+                    )}
                 </div>
               )}
 
               <div
-                className={`flex flex-col ${message.sender === 'me' ? 'items-end' : 'items-start'}`}
+                className={`flex flex-col w-full ${message.sender === 'me' ? 'items-end' : 'items-start'}`}
               >
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-3 ${
@@ -599,7 +798,26 @@ export function ChatConversationScreen() {
                       : 'bg-white border border-gray-200 rounded-bl-sm'
                   }`}
                 >
-                  <p className="break-words">{message.text}</p>
+                  {message.text && <p className="break-words">{message.text}</p>}
+                  {message.attachmentUrl && message.attachmentType === 'image' && (
+                    <img
+                      src={message.attachmentUrl}
+                      alt={message.attachmentName || 'Image'}
+                      loading="lazy"
+                      className={`${message.text ? 'mt-2' : ''} max-w-full rounded-lg cursor-pointer`}
+                    />
+                  )}
+                  {message.attachmentUrl && message.attachmentType === 'document' && (
+                    <a
+                      href={message.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${message.text ? 'mt-2' : ''} flex items-center gap-2 text-sm underline`}
+                    >
+                      <FileText className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{message.attachmentName || 'Document'}</span>
+                    </a>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
                   <span>{message.time}</span>
@@ -689,15 +907,67 @@ export function ChatConversationScreen() {
 
       {/* Input */}
       <div className="bg-white border-t border-gray-200 px-4 py-3 safe-area-bottom">
+        {/* Attachment Preview Chip */}
+        {pendingAttachment && (
+          <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl">
+            {pendingAttachment.type === 'image' ? (
+              <img
+                src={pendingAttachment.previewUrl}
+                alt={pendingAttachment.name}
+                className="w-10 h-10 rounded object-cover flex-shrink-0"
+              />
+            ) : (
+              <FileText className="w-8 h-8 text-blue-500 flex-shrink-0" />
+            )}
+            <span className="text-sm text-gray-700 truncate flex-1">
+              {pendingAttachment.name}
+            </span>
+            <button
+              type="button"
+              aria-label="Remove attachment"
+              onClick={() => {
+                if (pendingAttachment.previewUrl) {
+                  URL.revokeObjectURL(pendingAttachment.previewUrl);
+                }
+                setPendingAttachment(null);
+              }}
+              className="p-1 hover:bg-gray-200 rounded-full transition-colors flex-shrink-0"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-2 items-end">
+          {/* Hidden file input */}
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.txt"
+            className="hidden"
+            aria-label="Attach file"
+            onChange={handleAttachmentChange}
+          />
+
           {/* Attachment Button */}
-          <button className="p-2.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 mb-1">
-            <Paperclip className="w-5 h-5 text-gray-600" />
+          <button
+            type="button"
+            onClick={() => attachmentInputRef.current?.click()}
+            disabled={attachmentUploading}
+            aria-label="Open file picker"
+            className="p-2.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 mb-1 disabled:opacity-50"
+          >
+            {attachmentUploading ? (
+              <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />
+            ) : (
+              <Paperclip className="w-5 h-5 text-gray-600" />
+            )}
           </button>
 
-          {/* Input Field */}
-          <div className="flex-1 bg-gray-100 rounded-3xl px-4 py-2">
+          {/* Input Field + Emoji Button */}
+          <div className="relative flex-1 bg-gray-100 rounded-3xl px-4 py-2 flex items-end gap-2">
             <textarea
+              ref={textareaRef}
               value={messageText}
               onChange={(e) => {
                 setMessageText(e.target.value);
@@ -739,23 +1009,51 @@ export function ChatConversationScreen() {
               }}
               placeholder="Type a message..."
               rows={1}
-              className="w-full bg-transparent resize-none focus:outline-none max-h-32"
+              className="flex-1 bg-transparent resize-none focus:outline-none max-h-32"
               style={{ minHeight: '24px' }}
             />
+
+            {/* Emoji Toggle Button */}
+            <div className="relative flex-shrink-0 self-end mb-0.5">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                aria-label="Open emoji picker"
+                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <Smile className="w-5 h-5 text-gray-500" />
+              </button>
+
+              {/* Emoji Picker Popup */}
+              {showEmojiPicker && (
+                <div
+                  ref={emojiPickerRef}
+                  className="absolute bottom-full right-0 mb-2 z-50"
+                >
+                  <Suspense
+                    fallback={
+                      <div className="w-64 h-80 bg-white rounded-xl border border-gray-200 shadow-lg animate-pulse" />
+                    }
+                  >
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      lazyLoadEmojis
+                    />
+                  </Suspense>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Send/Emoji Button */}
-          {messageText.trim() ? (
+          {/* Send Button */}
+          {(messageText.trim() || pendingAttachment) && (
             <button
               onClick={handleSend}
               disabled={isSending}
+              aria-label="Send message"
               className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors flex-shrink-0 mb-1 disabled:opacity-50"
             >
               <Send className="w-5 h-5 text-white" />
-            </button>
-          ) : (
-            <button className="p-2.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 mb-1">
-              <Smile className="w-5 h-5 text-gray-600" />
             </button>
           )}
         </div>

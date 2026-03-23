@@ -1,5 +1,7 @@
 const pool = require('../config/database');
 const { generateId, timeAgo } = require('../utils/helpers');
+const { uploadToCloudinary } = require('../utils/imageService');
+const { sendPushToUser } = require('../utils/pushService');
 
 // Get user's conversations
 exports.getUserConversations = async (req, res, next) => {
@@ -105,10 +107,15 @@ exports.getUserConversations = async (req, res, next) => {
           ELSE u1.total_ratings
         END AS partner_total_ratings,
 
-        CASE 
+        CASE
           WHEN c.participant1_id = $1 THEN c.participant2_id
           ELSE c.participant1_id
         END AS partner_id,
+
+        CASE
+          WHEN c.participant1_id = $1 THEN u2.profile_image_url
+          ELSE u1.profile_image_url
+        END AS partner_profile_image_url,
 
         (
           SELECT m.content
@@ -357,13 +364,16 @@ exports.sendMessage = async (req, res, next) => {
   try {
     const { conversationId } = req.params;
     const content = req.body.content || req.body.message;
+    const { attachment_url, attachment_type, attachment_name } = req.body;
     const userId = req.user.id;
     const io = req.app.get('io');
 
-    if (!content || !String(content).trim()) {
+    const trimmedContent = content ? String(content).trim() : null;
+
+    if (!trimmedContent && !attachment_url) {
       return res.status(400).json({
         success: false,
-        message: 'Message content is required',
+        message: 'Message must have content or an attachment',
       });
     }
 
@@ -382,8 +392,17 @@ exports.sendMessage = async (req, res, next) => {
     // create message
     const messageId = generateId();
     await pool.query(
-      `INSERT INTO messages (id, conversation_id, sender_id, content ) VALUES ($1, $2, $3, $4)`,
-      [messageId, conversationId, userId, String(content).trim()]
+      `INSERT INTO messages (id, conversation_id, sender_id, content, attachment_url, attachment_type, attachment_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        messageId,
+        conversationId,
+        userId,
+        trimmedContent || null,
+        attachment_url || null,
+        attachment_type || null,
+        attachment_name || null,
+      ]
     );
 
     // Update conversation's last_message_at
@@ -412,6 +431,12 @@ exports.sendMessage = async (req, res, next) => {
     );
     const senderName = senderResult.rows[0]?.name || 'Unknown User';
 
+    const notificationDescription = trimmedContent
+      ? trimmedContent.substring(0, 100)
+      : attachment_type === 'image'
+        ? '📷 Image'
+        : '📎 Attachment';
+
     const notificationId = generateId();
     await pool.query(
       `INSERT INTO notifications (id, user_id, type, title, description, reference_id)
@@ -421,7 +446,7 @@ exports.sendMessage = async (req, res, next) => {
         recipientId,
         'message',
         `New message from ${senderName}`,
-        content.substring(0, 100),
+        notificationDescription,
         conversationId,
       ]
     );
@@ -441,6 +466,28 @@ exports.sendMessage = async (req, res, next) => {
       io.to(conversationId).emit('new_message', newMessage);
     }
 
+    // Send Web Push notification if the recipient is not actively viewing this conversation
+    const presenceMap = io?.presenceMap;
+    const recipientIsPresent = presenceMap
+      ?.get(conversationId)
+      ?.has(String(recipientId));
+
+    if (!recipientIsPresent) {
+      const pushBody = trimmedContent
+        ? trimmedContent.substring(0, 120)
+        : attachment_type === 'image'
+          ? '📷 Sent an image'
+          : '📎 Sent an attachment';
+
+      // Fire-and-forget — does not block the HTTP response
+      sendPushToUser(recipientId, {
+        title: `New message from ${senderName}`,
+        body: pushBody,
+        url: `/messages/${conversationId}`,
+        conversationId,
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: 'Message sent successfully',
@@ -452,6 +499,74 @@ exports.sendMessage = async (req, res, next) => {
 };
 
 // verify if this is needed
+
+// Upload attachment to Cloudinary and return the URL
+exports.sendAttachment = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+      });
+    }
+
+    // Check user is part of the conversation
+    const conversationResult = await pool.query(
+      `SELECT id FROM conversations WHERE id = $1 AND (participant1_id = $2 OR participant2_id = $2)`,
+      [conversationId, userId]
+    );
+    if (conversationResult.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    const { buffer, mimetype, originalname } = req.file;
+    const isImage = mimetype.startsWith('image/');
+    const attachmentType = isImage ? 'image' : 'document';
+
+    // Client-side size limits are enforced here too
+    const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+    const MAX_DOC_BYTES = 5 * 1024 * 1024;
+    const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_DOC_BYTES;
+    if (buffer.length > maxBytes) {
+      return res.status(400).json({
+        success: false,
+        message: `File too large. Maximum size is ${isImage ? '10' : '5'} MB.`,
+      });
+    }
+
+    const uploadOptions = isImage
+      ? {
+          transformation: [
+            { width: 1920, height: 1920, crop: 'limit' },
+            { fetch_format: 'auto', quality: 'auto' },
+          ],
+        }
+      : { resource_type: 'raw' };
+
+    const result = await uploadToCloudinary(
+      buffer,
+      'neara-chat-attachments',
+      uploadOptions
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        attachment_url: result.url,
+        attachment_type: attachmentType,
+        attachment_name: originalname,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.getConversationById = async (req, res, next) => {
   const { conversationId } = req.params;
@@ -473,7 +588,12 @@ exports.getConversationById = async (req, res, next) => {
         CASE
           WHEN c.participant1_id = $1 THEN u2.name
           ELSE u1.name
-        END AS partner_name
+        END AS partner_name,
+
+        CASE
+          WHEN c.participant1_id = $1 THEN u2.profile_image_url
+          ELSE u1.profile_image_url
+        END AS partner_image_url
 
       FROM conversations c
       JOIN listings l ON l.id = c.listing_id
@@ -499,6 +619,7 @@ exports.getConversationById = async (req, res, next) => {
         partner: {
           id: rows[0].partner_id,
           name: rows[0].partner_name,
+          profile_image_url: rows[0].partner_image_url || null,
         },
         listing: {
           id: rows[0].listing_id,
