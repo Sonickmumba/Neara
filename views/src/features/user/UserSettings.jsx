@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 
 import apiClient from '../../services/api';
 import { logout, mergeUser } from '../loginSignup/authSlice';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { ChangePasswordPanel } from './ChangePasswordPanel';
 import { HelpSupportPanel } from './HelpSupportPanel';
 
@@ -68,6 +69,7 @@ export function UserSettingsScreen() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const currentUser = useSelector((state) => state.auth.user);
+  const { subscribe, unsubscribe } = usePushNotifications();
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -643,9 +645,38 @@ export function UserSettingsScreen() {
                     </div>
                     <Toggle
                       checked={notifications.push}
-                      onChange={(checked) =>
-                        setNotifications((prev) => ({ ...prev, push: checked }))
-                      }
+                      onChange={async (checked) => {
+                        if (checked) {
+                          if (typeof Notification === 'undefined') {
+                            toast.error(
+                              'Push notifications are not supported in this browser'
+                            );
+                            return;
+                          }
+                          if (Notification.permission === 'denied') {
+                            toast.error(
+                              'Notifications are blocked. Enable them in your browser settings.'
+                            );
+                            return;
+                          }
+                          if (Notification.permission !== 'granted') {
+                            const permission =
+                              await Notification.requestPermission();
+                            if (permission !== 'granted') return;
+                          }
+                          await subscribe();
+                          setNotifications((prev) => ({
+                            ...prev,
+                            push: true,
+                          }));
+                        } else {
+                          await unsubscribe();
+                          setNotifications((prev) => ({
+                            ...prev,
+                            push: false,
+                          }));
+                        }
+                      }}
                     />
                   </div>
                 </div>
