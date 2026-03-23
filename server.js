@@ -52,9 +52,13 @@ const tradeRoutes = require('./routes/tradeRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const imageRoutes = require('./routes/imageRoutes');
+const pushRoutes = require('./routes/pushRoutes');
 
 const app = express();
 const server = http.createServer(app);
+
+// Trust the first proxy hop (required on Render, Heroku, etc. for correct IP + HTTPS detection)
+app.set('trust proxy', 1);
 /* ======================
    SOCKET.IO SETUP
 ====================== */
@@ -120,6 +124,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/push', pushRoutes);
 
 app.get('/api/status', (req, res) => {
   res.json({ success: true, message: 'API is running' });
@@ -150,6 +155,10 @@ app.get('/api/test-email', async (req, res) => {
 const presenceMap = new Map();
 // Map<socketId, { userId, conversationId }>
 const socketMeta = new Map();
+
+// Expose presenceMap on the io instance so controllers can gate push notifications
+// without importing server.js (avoids circular deps).
+io.presenceMap = presenceMap;
 
 function addPresence(conversationId, userId, socketId) {
   if (!presenceMap.has(conversationId))
