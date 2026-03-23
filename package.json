@@ -38,6 +38,7 @@
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "twilio": "^5.10.4",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "web-push": "^3.6.7"
   }
 }
