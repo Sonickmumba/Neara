@@ -11,7 +11,9 @@ if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim() !== '') {
   resend = new Resend(process.env.RESEND_API_KEY);
   console.log('✅ Email service (Resend) configured successfully');
 } else {
-  console.warn('⚠️  Email service not configured. Set RESEND_API_KEY to enable sending.');
+  console.warn(
+    '⚠️  Email service not configured. Set RESEND_API_KEY to enable sending.'
+  );
 }
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'Neara <onboarding@resend.dev>';
@@ -89,7 +91,12 @@ async function sendVerificationEmail(email, code) {
 async function sendPasswordResetEmail(email, resetLink) {
   try {
     if (!resend) {
-      console.log('📝 Test mode: password reset link for', email, '→', resetLink);
+      console.log(
+        '📝 Test mode: password reset link for',
+        email,
+        '→',
+        resetLink
+      );
       return true;
     }
 
