@@ -134,7 +134,7 @@ export function LoginSignup() {
     try {
       if (mode === 'signup') {
         // Send verification email first
-        dispatch(sendVerificationEmail({ email: formData.email }));
+        await dispatch(sendVerificationEmail({ email: formData.email })).unwrap();
         setPendingEmail(formData.email);
         setShowVerificationUI(true);
         // Don't navigate yet - wait for email verification
