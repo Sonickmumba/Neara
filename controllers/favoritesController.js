@@ -1,5 +1,11 @@
 const pool = require('../config/database');
-const { generateId, calculateDistance, timeAgo } = require('../utils/helpers');
+const {
+  generateId,
+  calculateDistance,
+  timeAgo,
+  toFiniteNumberOrNull,
+  roundDistance,
+} = require('../utils/helpers');
 
 // Add listing to favorites
 exports.addFavorite = async (req, res, next) => {
@@ -131,26 +137,30 @@ exports.getUserFavorites = async (req, res, next) => {
     let refLng = null;
 
     // Fallback: authenticated user location
-    if (req.user?.location_lat && req.user?.location_lng) {
-      refLat = parseFloat(req.user.location_lat);
-      refLng = parseFloat(req.user.location_lng);
-    }
+    refLat = toFiniteNumberOrNull(req.user?.location_lat);
+    refLng = toFiniteNumberOrNull(req.user?.location_lng);
 
-    if (refLat !== null && refLng !== null) {
-      listings.forEach((listing) => {
-        if (listing.location_lat && listing.location_lng) {
-          const distance = calculateDistance(
-            refLat,
-            refLng,
-            parseFloat(listing.location_lat),
-            parseFloat(listing.location_lng)
-          );
-          listing.distance = Number(distance.toFixed(1));
-        } else {
-          listing.distance = null;
-        }
-      });
-    }
+    listings.forEach((listing) => {
+      const listingLat = toFiniteNumberOrNull(listing.location_lat);
+      const listingLng = toFiniteNumberOrNull(listing.location_lng);
+
+      if (
+        refLat !== null &&
+        refLng !== null &&
+        listingLat !== null &&
+        listingLng !== null
+      ) {
+        const distance = calculateDistance(
+          refLat,
+          refLng,
+          listingLat,
+          listingLng
+        );
+        listing.distance = roundDistance(distance);
+      } else {
+        listing.distance = null;
+      }
+    });
 
     // Time ago
     listings.forEach((listing) => {
