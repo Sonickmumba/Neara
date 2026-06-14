@@ -1,5 +1,22 @@
 const pool = require('../config/database');
-const { timeAgo } = require('../utils/helpers');
+const { timeAgo, toFiniteNumberOrNull } = require('../utils/helpers');
+
+const sqlDistanceExpression = (
+  refLatSql,
+  refLngSql,
+  targetLatSql = 'l.location_lat',
+  targetLngSql = 'l.location_lng'
+) => `
+  6371 * acos(
+    LEAST(1, GREATEST(-1,
+      cos(radians(${refLatSql})) *
+      cos(radians(${targetLatSql})) *
+      cos(radians(${targetLngSql}) - radians(${refLngSql})) +
+      sin(radians(${refLatSql})) *
+      sin(radians(${targetLatSql}))
+    ))
+  )
+`;
 
 // Get recent activity feed (new listings near user)
 exports.getRecentActivity = async (req, res, next) => {
@@ -18,19 +35,16 @@ exports.getRecentActivity = async (req, res, next) => {
       [userId]
     );
 
-    if (
-      userResult.rows.length === 0 ||
-      !userResult.rows[0].location_lat ||
-      !userResult.rows[0].location_lng
-    ) {
+    const userLat = toFiniteNumberOrNull(userResult.rows[0]?.location_lat);
+    const userLng = toFiniteNumberOrNull(userResult.rows[0]?.location_lng);
+
+    if (userLat === null || userLng === null) {
       return res.json({
         success: true,
         count: 0,
         data: [],
       });
     }
-
-    const { location_lat: userLat, location_lng: userLng } = userResult.rows[0];
 
     /* 2️⃣ Nearby recent listings */
     const listingsResult = await pool.query(
@@ -45,11 +59,7 @@ exports.getRecentActivity = async (req, res, next) => {
           u.profile_image_url AS author_image,
 
           (
-            6371 * acos(
-              cos(radians($1)) * cos(radians(l.location_lat)) *
-              cos(radians(l.location_lng) - radians($2)) +
-              sin(radians($1)) * sin(radians(l.location_lat))
-            )
+            ${sqlDistanceExpression('$1', '$2')}
           ) AS distance_km
 
         FROM listings l
@@ -73,11 +83,15 @@ exports.getRecentActivity = async (req, res, next) => {
       ? listingsResult.rows.slice(0, cappedLimit)
       : listingsResult.rows;
 
-    const listings = pageRows.map((listing) => ({
-      ...listing,
-      timeAgo: timeAgo(listing.created_at),
-      distance: `${Number(listing.distance_km).toFixed(1)} km`,
-    }));
+    const listings = pageRows.map((listing) => {
+      const distanceKm = toFiniteNumberOrNull(listing.distance_km);
+
+      return {
+        ...listing,
+        timeAgo: timeAgo(listing.created_at),
+        distance: distanceKm === null ? null : `${distanceKm.toFixed(1)} km`,
+      };
+    });
 
     res.json({
       success: true,
