@@ -1,5 +1,12 @@
 const pool = require('../config/database');
 const { generateId } = require('./helpers');
+const {
+  distanceKmExpression,
+  hasPostgisLocationColumns,
+  haversineDistanceKmExpression,
+  haversineWithinRadiusKmExpression,
+  withinRadiusKmExpression,
+} = require('./spatial');
 
 async function createNotification(
   userId,
@@ -97,39 +104,45 @@ async function notifyUsersNearbyListing(
 ) {
   if (listingLat == null || listingLng == null) return [];
 
+  const usePostgis = await hasPostgisLocationColumns(pool);
+  const distanceExpression = usePostgis
+    ? distanceKmExpression('location_geog', '$1', '$2')
+    : haversineDistanceKmExpression(
+        '$1',
+        '$2',
+        'location_lat',
+        'location_lng'
+      );
+  const locationNotNull = usePostgis
+    ? 'location_geog IS NOT NULL'
+    : 'location_lat IS NOT NULL AND location_lng IS NOT NULL';
+  const withinRadiusExpression = usePostgis
+    ? withinRadiusKmExpression('location_geog', '$1', '$2', '10')
+    : haversineWithinRadiusKmExpression(
+        '$1',
+        '$2',
+        '10',
+        'location_lat',
+        'location_lng'
+      );
+
   const { rows: users } = await pool.query(
     `
     SELECT
       id,
-      (
-        6371 * acos(
-          LEAST(
-            1,
-            GREATEST(
-              -1,
-              cos(radians($1)) *
-              cos(radians(location_lat)) *
-              cos(radians(location_lng) - radians($2)) +
-              sin(radians($1)) *
-              sin(radians(location_lat))
-            )
-          )
-        )
-      ) AS distance
+      (${distanceExpression}) AS distance
     FROM users
     WHERE id <> $3
-      AND location_lat IS NOT NULL
-      AND location_lng IS NOT NULL
+      AND ${locationNotNull}
+      AND ${withinRadiusExpression}
     ORDER BY distance ASC
     LIMIT 50
     `,
     [listingLat, listingLng, creatorId]
   );
 
-  const nearbyUsers = users.filter((user) => Number(user.distance) <= 10);
-
   return Promise.all(
-    nearbyUsers.map((user) =>
+    users.map((user) =>
       createNotification(
         user.id,
         'listing',

@@ -197,6 +197,11 @@ export function ChatConversationScreen() {
       // Reset input so the same file can be re-selected after removal
       e.target.value = '';
 
+      if (pendingAttachment) {
+        toast.error('Remove the current attachment before adding another.');
+        return;
+      }
+
       const isImage = file.type.startsWith('image/');
       const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
       const MAX_DOC_BYTES = 5 * 1024 * 1024;
@@ -253,7 +258,7 @@ export function ChatConversationScreen() {
         setAttachmentUploading(false);
       }
     },
-    [conversationId]
+    [conversationId, pendingAttachment]
   );
 
   useEffect(() => {
@@ -967,7 +972,7 @@ export function ChatConversationScreen() {
           <button
             type="button"
             onClick={() => attachmentInputRef.current?.click()}
-            disabled={attachmentUploading}
+            disabled={attachmentUploading || !!pendingAttachment}
             aria-label="Open file picker"
             className="p-2.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 mb-1 disabled:opacity-50"
           >

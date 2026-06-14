@@ -39,6 +39,8 @@ router.patch(
 // Upload attachment (image or document) to Cloudinary
 router.post(
   '/:conversationId/attachments',
+  validateConversationId,
+  conversationsController.ensureConversationParticipant,
   uploadChatAttachment.single('file'),
   conversationsController.sendAttachment
 );

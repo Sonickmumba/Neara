@@ -2,6 +2,29 @@ const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const path = require('path');
 
+const CHAT_ATTACHMENT_FOLDER = 'neara-chat-attachments';
+const CHAT_ATTACHMENT_URL_PATTERN = new RegExp(
+  `/upload/(?:v\\d+/)?${CHAT_ATTACHMENT_FOLDER}/`
+);
+const ALLOWED_CHAT_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
+const ALLOWED_CHAT_DOCUMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+]);
+const ALLOWED_CHAT_DOCUMENT_EXTENSIONS = new Set([
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.txt',
+]);
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -103,14 +126,22 @@ const deleteFromCloudinary = (publicId) => {
 
 // File filter for chat attachments (images + documents)
 const chatAttachmentFilter = (req, file, cb) => {
-  const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
-  const allowedDocTypes = /pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document|plain/;
-  const isImage = allowedImageTypes.test(file.mimetype) && allowedImageTypes.test(path.extname(file.originalname).toLowerCase());
-  const isDoc = allowedDocTypes.test(file.mimetype);
+  const ext = path.extname(file.originalname).toLowerCase();
+  const isImage =
+    ALLOWED_CHAT_IMAGE_MIME_TYPES.has(file.mimetype) &&
+    ['.jpeg', '.jpg', '.png', '.gif', '.webp'].includes(ext);
+  const isDoc =
+    ALLOWED_CHAT_DOCUMENT_MIME_TYPES.has(file.mimetype) &&
+    ALLOWED_CHAT_DOCUMENT_EXTENSIONS.has(ext);
+
   if (isImage || isDoc) {
     return cb(null, true);
   }
-  cb(new Error('Only images (JPEG, PNG, WebP, GIF) and documents (PDF, DOC, DOCX, TXT) are allowed!'), false);
+  const error = new Error(
+    'Only images (JPEG, PNG, WebP, GIF) and documents (PDF, DOC, DOCX, TXT) are allowed!'
+  );
+  error.statusCode = 400;
+  cb(error, false);
 };
 
 // Multer instance for chat attachments
@@ -129,4 +160,9 @@ module.exports = {
   uploadToCloudinary,
   uploadMultipleToCloudinary,
   deleteFromCloudinary,
+  CHAT_ATTACHMENT_FOLDER,
+  CHAT_ATTACHMENT_URL_PATTERN,
+  ALLOWED_CHAT_IMAGE_MIME_TYPES,
+  ALLOWED_CHAT_DOCUMENT_MIME_TYPES,
+  ALLOWED_CHAT_DOCUMENT_EXTENSIONS,
 };

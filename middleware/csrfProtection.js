@@ -40,9 +40,16 @@ const csrfProtection = (req, res, next) => {
     req.get('X-CSRF-Token') || req.get('X-XSRF-Token') || req.body?._csrf;
 
   if (!expectedToken || !actualToken || !tokensMatch(actualToken, expectedToken)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Invalid CSRF token',
+    const csrfToken = ensureCsrfToken(req);
+
+    return req.session.save((err) => {
+      if (err) return next(err);
+
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid CSRF token',
+        csrfToken,
+      });
     });
   }
 

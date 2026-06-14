@@ -141,6 +141,7 @@ exports.getUserFavorites = async (req, res, next) => {
     refLng = toFiniteNumberOrNull(req.user?.location_lng);
 
     listings.forEach((listing) => {
+      delete listing.location_geog;
       const listingLat = toFiniteNumberOrNull(listing.location_lat);
       const listingLng = toFiniteNumberOrNull(listing.location_lng);
 

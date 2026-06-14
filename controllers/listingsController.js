@@ -6,24 +6,15 @@ const {
   toFiniteNumberOrNull,
   roundDistance,
 } = require('../utils/helpers');
+const {
+  distanceBetweenGeographiesKm,
+  hasPostgisLocationColumns,
+  haversineDistanceKmExpression,
+  listingDistanceKmExpression,
+  listingLocationNotNullSql,
+  listingWithinRadiusKmExpression,
+} = require('../utils/spatial');
 const { createNotification } = require('./notificationsController');
-
-const sqlDistanceExpression = (
-  refLatSql,
-  refLngSql,
-  targetLatSql = 'l.location_lat',
-  targetLngSql = 'l.location_lng'
-) => `
-  6371 * acos(
-    LEAST(1, GREATEST(-1,
-      cos(radians(${refLatSql})) *
-      cos(radians(${targetLatSql})) *
-      cos(radians(${targetLngSql}) - radians(${refLngSql})) +
-      sin(radians(${refLatSql})) *
-      sin(radians(${targetLatSql}))
-    ))
-  )
-`;
 
 /**
  * GET /listings
@@ -31,6 +22,7 @@ const sqlDistanceExpression = (
  */
 exports.getAllListings = async (req, res, next) => {
   try {
+    const usePostgis = await hasPostgisLocationColumns(pool);
     const {
       type,
       category,
@@ -112,7 +104,7 @@ exports.getAllListings = async (req, res, next) => {
 
     if (refLat != null && refLng != null) {
       distanceSelect = `
-        (${sqlDistanceExpression(`$${idx}`, `$${idx + 1}`)}) AS distance
+        (${listingDistanceKmExpression(usePostgis, `$${idx}`, `$${idx + 1}`)}) AS distance
       `;
       params.push(refLat, refLng);
       idx += 2;
@@ -121,7 +113,13 @@ exports.getAllListings = async (req, res, next) => {
       if (parsedRadius !== null && parsedRadius > 0) {
         const safeRadius = Math.min(parsedRadius, 100);
         distanceWhere = `
-          AND (${sqlDistanceExpression(`$${idx - 2}`, `$${idx - 1}`)}) <= $${idx}
+          AND ${listingLocationNotNullSql(usePostgis)}
+          AND ${listingWithinRadiusKmExpression(
+            usePostgis,
+            `$${idx - 2}`,
+            `$${idx - 1}`,
+            `$${idx}`
+          )}
         `;
         params.push(safeRadius);
         idx++;
@@ -185,6 +183,7 @@ exports.getAllListings = async (req, res, next) => {
     const { rows } = await pool.query(query, params);
 
     rows.forEach((listing) => {
+      delete listing.location_geog;
       listing.timeAgo = timeAgo(listing.created_at);
       if (listing.distance !== null) {
         listing.distance = roundDistance(listing.distance);
@@ -210,6 +209,7 @@ exports.getAllListings = async (req, res, next) => {
  */
 exports.getListingsById = async (req, res, next) => {
   try {
+    const usePostgis = await hasPostgisLocationColumns(pool);
     const { id } = req.params;
 
     // Use the viewer's stored location as the reference point for distance
@@ -218,7 +218,7 @@ exports.getListingsById = async (req, res, next) => {
     const hasLocation = refLat != null && refLng != null;
 
     const distanceExpr = hasLocation
-      ? `(${sqlDistanceExpression('$2', '$3')}) AS distance`
+      ? `(${listingDistanceKmExpression(usePostgis, '$2', '$3')}) AS distance`
       : 'NULL::double precision AS distance';
 
     const params = hasLocation ? [id, refLat, refLng] : [id];
@@ -254,6 +254,7 @@ exports.getListingsById = async (req, res, next) => {
     }
 
     const listing = rows[0];
+    delete listing.location_geog;
     listing.timeAgo = timeAgo(listing.created_at);
 
     // Round to 1 decimal place — consistent with getAllListings
@@ -273,6 +274,7 @@ exports.getListingsById = async (req, res, next) => {
  */
 exports.getSimilarListings = async (req, res, next) => {
   try {
+    const usePostgis = await hasPostgisLocationColumns(pool);
     const { id } = req.params;
     const limit = Math.min(Number(req.query.limit) || 4, 20);
 
@@ -293,15 +295,28 @@ exports.getSimilarListings = async (req, res, next) => {
       });
     }
 
-    const listingDistanceExpr = sqlDistanceExpression(
-      'b.location_lat',
-      'b.location_lng'
-    );
+    const listingDistanceExpr = usePostgis
+      ? distanceBetweenGeographiesKm('b.location_geog', 'l.location_geog')
+      : haversineDistanceKmExpression(
+          'b.location_lat',
+          'b.location_lng',
+          'l.location_lat',
+          'l.location_lng'
+        );
+    const baseLocationSelect = usePostgis
+      ? 'location_lat, location_lng, location_geog'
+      : 'location_lat, location_lng';
+    const hasSimilarLocations = usePostgis
+      ? 'b.location_geog IS NOT NULL AND l.location_geog IS NOT NULL'
+      : `b.location_lat IS NOT NULL
+              AND b.location_lng IS NOT NULL
+              AND l.location_lat IS NOT NULL
+              AND l.location_lng IS NOT NULL`;
 
     const { rows } = await pool.query(
       `
       WITH base AS (
-        SELECT id, user_id, category, type, location_lat, location_lng
+        SELECT id, user_id, category, type, ${baseLocationSelect}
         FROM listings
         WHERE id = $1
       )
@@ -314,10 +329,7 @@ exports.getSimilarListings = async (req, res, next) => {
         u.email_verified AS isverified,
         COALESCE(cc.count, 0) AS responses_count,
         CASE
-          WHEN b.location_lat IS NOT NULL
-            AND b.location_lng IS NOT NULL
-            AND l.location_lat IS NOT NULL
-            AND l.location_lng IS NOT NULL
+          WHEN ${hasSimilarLocations}
           THEN (${listingDistanceExpr})
           ELSE NULL
         END AS distance,
@@ -325,10 +337,7 @@ exports.getSimilarListings = async (req, res, next) => {
           CASE WHEN l.category = b.category THEN 3 ELSE 0 END +
           CASE WHEN l.type = b.type THEN 2 ELSE 0 END +
           CASE
-            WHEN b.location_lat IS NOT NULL
-              AND b.location_lng IS NOT NULL
-              AND l.location_lat IS NOT NULL
-              AND l.location_lng IS NOT NULL
+            WHEN ${hasSimilarLocations}
             THEN GREATEST(
               0,
               1 - (
@@ -355,6 +364,7 @@ exports.getSimilarListings = async (req, res, next) => {
     );
 
     rows.forEach((listing) => {
+      delete listing.location_geog;
       listing.timeAgo = timeAgo(listing.created_at);
       if (listing.distance !== null) {
         listing.distance = roundDistance(listing.distance);
@@ -379,6 +389,7 @@ exports.getSimilarListings = async (req, res, next) => {
  */
 exports.createListing = async (req, res, next) => {
   try {
+    const usePostgis = await hasPostgisLocationColumns(pool);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ success: false, errors: errors.array() });
@@ -461,7 +472,7 @@ exports.createListing = async (req, res, next) => {
     const hasLocation = refLat != null && refLng != null;
 
     const distanceExpr = hasLocation
-      ? `(${sqlDistanceExpression('$2', '$3')}) AS distance`
+      ? `(${listingDistanceKmExpression(usePostgis, '$2', '$3')}) AS distance`
       : 'NULL::double precision AS distance';
 
     const fetchParams = hasLocation ? [listingId, refLat, refLng] : [listingId];
@@ -484,6 +495,7 @@ exports.createListing = async (req, res, next) => {
     );
 
     const listing = listingRows[0];
+    delete listing.location_geog;
     listing.timeAgo = timeAgo(listing.created_at);
 
     // Round to 1 decimal place — consistent with getAllListings

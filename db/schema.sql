@@ -1,5 +1,7 @@
 BEGIN;
 
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 -- =====================================================
 -- ENUM TYPES (idempotent — skip if already exists)
 -- =====================================================
@@ -41,6 +43,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION set_location_geog()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.location_lat IS NULL OR NEW.location_lng IS NULL THEN
+    NEW.location_geog = NULL;
+  ELSE
+    NEW.location_geog = ST_SetSRID(
+      ST_MakePoint(
+        NEW.location_lng::double precision,
+        NEW.location_lat::double precision
+      ),
+      4326
+    )::geography;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =====================================================
 -- USERS
 -- =====================================================
@@ -69,10 +90,30 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_location ON users(location_lat, location_lng);
 
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS location_geog GEOGRAPHY(Point, 4326);
+
+UPDATE users
+SET location_geog = ST_SetSRID(
+  ST_MakePoint(location_lng::double precision, location_lat::double precision),
+  4326
+)::geography
+WHERE location_lat IS NOT NULL
+  AND location_lng IS NOT NULL
+  AND location_geog IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_users_location_geog
+ON users USING GIST (location_geog);
+
 DROP TRIGGER IF EXISTS trg_users_updated ON users;
 CREATE TRIGGER trg_users_updated
 BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_users_location_geog ON users;
+CREATE TRIGGER trg_users_location_geog
+BEFORE INSERT OR UPDATE OF location_lat, location_lng ON users
+FOR EACH ROW EXECUTE FUNCTION set_location_geog();
 
 -- =====================================================
 -- EMAIL VERIFICATION CODES
@@ -190,10 +231,30 @@ CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
 CREATE INDEX IF NOT EXISTS idx_listings_location ON listings(location_lat, location_lng);
 CREATE INDEX IF NOT EXISTS idx_listings_created ON listings(created_at);
 
+ALTER TABLE listings
+ADD COLUMN IF NOT EXISTS location_geog GEOGRAPHY(Point, 4326);
+
+UPDATE listings
+SET location_geog = ST_SetSRID(
+  ST_MakePoint(location_lng::double precision, location_lat::double precision),
+  4326
+)::geography
+WHERE location_lat IS NOT NULL
+  AND location_lng IS NOT NULL
+  AND location_geog IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_listings_location_geog
+ON listings USING GIST (location_geog);
+
 DROP TRIGGER IF EXISTS trg_listings_updated ON listings;
 CREATE TRIGGER trg_listings_updated
 BEFORE UPDATE ON listings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_listings_location_geog ON listings;
+CREATE TRIGGER trg_listings_location_geog
+BEFORE INSERT OR UPDATE OF location_lat, location_lng ON listings
+FOR EACH ROW EXECUTE FUNCTION set_location_geog();
 
 -- =====================================================
 -- CONVERSATIONS
@@ -242,6 +303,8 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_created
+ON messages(conversation_id, created_at DESC, id DESC);
 
 -- =====================================================
 -- TRADES

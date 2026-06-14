@@ -1,7 +1,70 @@
 const pool = require('../config/database');
 const { generateId, timeAgo } = require('../utils/helpers');
-const { uploadToCloudinary } = require('../utils/imageService');
+const {
+  CHAT_ATTACHMENT_FOLDER,
+  CHAT_ATTACHMENT_URL_PATTERN,
+  uploadToCloudinary,
+} = require('../utils/imageService');
 const { sendPushToUser } = require('../utils/pushService');
+
+const MAX_MESSAGE_CHARS = 5000;
+const MAX_ATTACHMENT_NAME_CHARS = 255;
+const ALLOWED_ATTACHMENT_TYPES = new Set(['image', 'document']);
+
+const isCloudinaryChatAttachmentUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname === 'res.cloudinary.com' &&
+      CHAT_ATTACHMENT_URL_PATTERN.test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
+};
+
+const normalizeAttachmentPayload = ({ url, type, name }) => {
+  if (!url && !type && !name) return null;
+
+  if (!url || !type || !name) {
+    const error = new Error('Attachment URL, type, and name are required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const normalizedType = String(type).trim().toLowerCase();
+  const normalizedName = String(name).trim();
+  const normalizedUrl = String(url).trim();
+
+  if (!ALLOWED_ATTACHMENT_TYPES.has(normalizedType)) {
+    const error = new Error('Invalid attachment type');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (
+    !normalizedName ||
+    normalizedName.length > MAX_ATTACHMENT_NAME_CHARS ||
+    /[/\\]/.test(normalizedName)
+  ) {
+    const error = new Error('Invalid attachment name');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!isCloudinaryChatAttachmentUrl(normalizedUrl)) {
+    const error = new Error('Invalid attachment URL');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    url: normalizedUrl,
+    type: normalizedType,
+    name: normalizedName,
+  };
+};
 
 async function markConversationReadForUser(db, conversationId, userId) {
   const messagesResult = await db.query(
@@ -32,6 +95,35 @@ async function markConversationReadForUser(db, conversationId, userId) {
     notificationsRead: notificationsResult.rowCount,
   };
 }
+
+exports.ensureConversationParticipant = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const { rows } = await pool.query(
+      `
+      SELECT id
+      FROM conversations
+      WHERE id = $1
+        AND (participant1_id = $2 OR participant2_id = $2)
+      LIMIT 1
+      `,
+      [conversationId, userId]
+    );
+
+    if (!rows.length) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+};
 
 // Get user's conversations
 exports.getUserConversations = async (req, res, next) => {
@@ -436,6 +528,9 @@ exports.markConversationAsRead = async (req, res, next) => {
 
 // send message
 exports.sendMessage = async (req, res, next) => {
+  let client;
+  let transactionStarted = false;
+
   try {
     const { conversationId } = req.params;
     const content = req.body.content || req.body.message;
@@ -444,20 +539,38 @@ exports.sendMessage = async (req, res, next) => {
     const io = req.app.get('io');
 
     const trimmedContent = content ? String(content).trim() : null;
+    const attachment = normalizeAttachmentPayload({
+      url: attachment_url,
+      type: attachment_type,
+      name: attachment_name,
+    });
 
-    if (!trimmedContent && !attachment_url) {
+    if (trimmedContent && trimmedContent.length > MAX_MESSAGE_CHARS) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message too long',
+      });
+    }
+
+    if (!trimmedContent && !attachment) {
       return res.status(400).json({
         success: false,
         message: 'Message must have content or an attachment',
       });
     }
 
+    client = await pool.connect();
+    await client.query('BEGIN');
+    transactionStarted = true;
+
     // check if user is part of the conversation
-    const conversationResult = await pool.query(
+    const conversationResult = await client.query(
       `SELECT * FROM conversations WHERE id = $1 AND (participant1_id = $2 OR participant2_id = $3)`,
       [conversationId, userId, userId]
     );
     if (conversationResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
       return res.status(403).json({
         success: false,
         message: 'Cannot send message',
@@ -466,7 +579,7 @@ exports.sendMessage = async (req, res, next) => {
 
     // create message
     const messageId = generateId();
-    await pool.query(
+    await client.query(
       `INSERT INTO messages (id, conversation_id, sender_id, content, attachment_url, attachment_type, attachment_name)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
@@ -474,14 +587,14 @@ exports.sendMessage = async (req, res, next) => {
         conversationId,
         userId,
         trimmedContent || null,
-        attachment_url || null,
-        attachment_type || null,
-        attachment_name || null,
+        attachment?.url || null,
+        attachment?.type || null,
+        attachment?.name || null,
       ]
     );
 
     // Update conversation's last_message_at
-    await pool.query(
+    await client.query(
       `UPDATE conversations SET last_message_at = NOW() WHERE id = $1`,
       [conversationId]
     );
@@ -494,7 +607,7 @@ exports.sendMessage = async (req, res, next) => {
         : conversation.participant1_id;
 
     // Get sender's name for notification
-    const senderResult = await pool.query(
+    const senderResult = await client.query(
       'SELECT name FROM users WHERE id = $1',
       [userId]
     );
@@ -502,12 +615,12 @@ exports.sendMessage = async (req, res, next) => {
 
     const notificationDescription = trimmedContent
       ? trimmedContent.substring(0, 100)
-      : attachment_type === 'image'
+      : attachment?.type === 'image'
         ? '📷 Image'
         : '📎 Attachment';
 
     const notificationId = generateId();
-    await pool.query(
+    await client.query(
       `INSERT INTO notifications (id, user_id, type, title, description, reference_id)
             VALUES ($1, $2, $3, $4, $5, $6)`,
       [
@@ -520,7 +633,7 @@ exports.sendMessage = async (req, res, next) => {
       ]
     );
 
-    const newMessageResult = await pool.query(
+    const newMessageResult = await client.query(
       `SELECT m.*, u.name as sender_name
             FROM messages m
             JOIN users u ON m.sender_id = u.id
@@ -529,6 +642,9 @@ exports.sendMessage = async (req, res, next) => {
     );
 
     const newMessage = newMessageResult.rows[0];
+
+    await client.query('COMMIT');
+    transactionStarted = false;
 
     // Broadcast via Socket.IO to the room
     if (io) {
@@ -544,7 +660,7 @@ exports.sendMessage = async (req, res, next) => {
     if (!recipientIsPresent) {
       const pushBody = trimmedContent
         ? trimmedContent.substring(0, 120)
-        : attachment_type === 'image'
+        : attachment?.type === 'image'
           ? '📷 Sent an image'
           : '📎 Sent an attachment';
 
@@ -564,7 +680,20 @@ exports.sendMessage = async (req, res, next) => {
       data: newMessage,
     });
   } catch (error) {
+    if (transactionStarted && client) {
+      await client.query('ROLLBACK');
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
     next(error);
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 };
 
@@ -621,7 +750,7 @@ exports.sendAttachment = async (req, res, next) => {
 
     const result = await uploadToCloudinary(
       buffer,
-      'neara-chat-attachments',
+      CHAT_ATTACHMENT_FOLDER,
       uploadOptions
     );
 

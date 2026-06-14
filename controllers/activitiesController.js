@@ -1,26 +1,16 @@
 const pool = require('../config/database');
 const { timeAgo, toFiniteNumberOrNull } = require('../utils/helpers');
-
-const sqlDistanceExpression = (
-  refLatSql,
-  refLngSql,
-  targetLatSql = 'l.location_lat',
-  targetLngSql = 'l.location_lng'
-) => `
-  6371 * acos(
-    LEAST(1, GREATEST(-1,
-      cos(radians(${refLatSql})) *
-      cos(radians(${targetLatSql})) *
-      cos(radians(${targetLngSql}) - radians(${refLngSql})) +
-      sin(radians(${refLatSql})) *
-      sin(radians(${targetLatSql}))
-    ))
-  )
-`;
+const {
+  hasPostgisLocationColumns,
+  listingDistanceKmExpression,
+  listingLocationNotNullSql,
+  listingWithinRadiusKmExpression,
+} = require('../utils/spatial');
 
 // Get recent activity feed (new listings near user)
 exports.getRecentActivity = async (req, res, next) => {
   try {
+    const usePostgis = await hasPostgisLocationColumns(pool);
     const userId = req.user.id;
     const hours = Number.parseInt(req.query.hours ?? 24, 10) || 24;
     const limit = Number.parseInt(req.query.limit ?? 20, 10) || 20;
@@ -59,7 +49,7 @@ exports.getRecentActivity = async (req, res, next) => {
           u.profile_image_url AS author_image,
 
           (
-            ${sqlDistanceExpression('$1', '$2')}
+            ${listingDistanceKmExpression(usePostgis, '$1', '$2')}
           ) AS distance_km
 
         FROM listings l
@@ -67,10 +57,9 @@ exports.getRecentActivity = async (req, res, next) => {
         WHERE l.status = 'active'
           AND l.user_id <> $3
           AND l.created_at >= NOW() - ($4 || ' hours')::interval
-          AND l.location_lat IS NOT NULL
-          AND l.location_lng IS NOT NULL
+          AND ${listingLocationNotNullSql(usePostgis)}
+          AND ${listingWithinRadiusKmExpression(usePostgis, '$1', '$2', '10')}
       ) sub
-      WHERE distance_km <= 10
       ORDER BY created_at DESC
       LIMIT $5
       OFFSET $6
@@ -85,9 +74,11 @@ exports.getRecentActivity = async (req, res, next) => {
 
     const listings = pageRows.map((listing) => {
       const distanceKm = toFiniteNumberOrNull(listing.distance_km);
+      const publicListing = { ...listing };
+      delete publicListing.location_geog;
 
       return {
-        ...listing,
+        ...publicListing,
         timeAgo: timeAgo(listing.created_at),
         distance: distanceKm === null ? null : `${distanceKm.toFixed(1)} km`,
       };

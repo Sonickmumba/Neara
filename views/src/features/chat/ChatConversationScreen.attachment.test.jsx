@@ -339,6 +339,28 @@ describe('ChatConversationScreen — attachment upload', () => {
     ).toBeInTheDocument();
   });
 
+  it('disables the file picker while an attachment is pending', async () => {
+    apiClient.post.mockResolvedValue({
+      data: {
+        data: {
+          attachment_url: ATTACHMENT_URL,
+          attachment_type: 'image',
+          attachment_name: 'photo.jpg',
+        },
+      },
+    });
+
+    await waitForReady();
+    fireEvent.change(screen.getByLabelText(/attach file/i), {
+      target: { files: [makeFile()] },
+    });
+    await waitFor(() => screen.getByText('photo.jpg'));
+
+    expect(
+      screen.getByRole('button', { name: /open file picker/i })
+    ).toBeDisabled();
+  });
+
   it('shows a toast error and clears spinner on upload failure', async () => {
     apiClient.post.mockRejectedValue(
       Object.assign(new Error('fail'), {

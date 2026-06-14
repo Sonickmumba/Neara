@@ -15,6 +15,9 @@ const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 let csrfToken = null;
 let csrfTokenPromise = null;
 
+const isUnsafeMethod = (method) =>
+  UNSAFE_METHODS.has(String(method || 'get').toLowerCase());
+
 const fetchCsrfToken = async () => {
   if (csrfToken) return csrfToken;
 
@@ -37,9 +40,7 @@ const fetchCsrfToken = async () => {
 };
 
 apiClient.interceptors.request.use(async (config) => {
-  const method = String(config.method || 'get').toLowerCase();
-
-  if (!config.skipCsrf && UNSAFE_METHODS.has(method)) {
+  if (!config.skipCsrf && isUnsafeMethod(config.method)) {
     const token = await fetchCsrfToken();
 
     if (token) {
@@ -50,6 +51,37 @@ apiClient.interceptors.request.use(async (config) => {
 
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalConfig = error.config || {};
+    const isCsrfFailure =
+      error.response?.status === 403 &&
+      error.response?.data?.message === 'Invalid CSRF token';
+
+    if (
+      isCsrfFailure &&
+      !originalConfig.__csrfRetry &&
+      !originalConfig.skipCsrf &&
+      isUnsafeMethod(originalConfig.method)
+    ) {
+      csrfToken = error.response?.data?.csrfToken || null;
+      csrfTokenPromise = null;
+
+      const token = csrfToken || (await fetchCsrfToken());
+
+      if (token) {
+        originalConfig.__csrfRetry = true;
+        originalConfig.headers = originalConfig.headers || {};
+        originalConfig.headers['X-CSRF-Token'] = token;
+        return apiClient(originalConfig);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 // Routes where a 401 should never trigger a redirect to /loginSignup.
 // These pages are intentionally public and unauthenticated 401s are expected

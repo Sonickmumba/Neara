@@ -380,11 +380,15 @@ app.use((err, req, res, next) => {
   console.error(err);
 
   const status =
-    err.name === 'MulterError' ? 400 : err.status || err.statusCode || 500;
+    err.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE'
+      ? 413
+      : err.name === 'MulterError'
+        ? 400
+        : err.status || err.statusCode || 500;
   res.status(status).json({
     success: false,
     message:
-      process.env.NODE_ENV === 'production'
+      process.env.NODE_ENV === 'production' && status >= 500
         ? 'Internal server error'
         : err.message || 'Internal server error',
   });

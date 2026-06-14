@@ -5,10 +5,13 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "test": "cd views && npm test",
+    "test": "npm run test:backend && cd views && npm test",
+    "test:backend": "node --test test/**/*.test.js",
     "build": "npm install && cd views && npm install --include=dev && npm run build",
     "start": "node server.js",
-    "db:init": "node db/initDb.js"
+    "db:init": "node db/initDb.js",
+    "db:migrate:postgis": "node db/migratePostgis.js",
+    "db:migrate:message-indexes": "node db/runSqlFile.js db/migration_message_indexes.sql"
   },
   "repository": {
     "type": "git",
