@@ -3,18 +3,42 @@ const { v4: uuidv4 } = require('uuid');
 // Generate UUID
 const generateId = () => uuidv4();
 
+const toFiniteNumberOrNull = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const roundDistance = (value) => {
+  const number = toFiniteNumberOrNull(value);
+  return number === null ? null : Number(number.toFixed(1));
+};
+
 // Calculate distance between two coordinates (Haversine formula)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const startLat = toFiniteNumberOrNull(lat1);
+  const startLng = toFiniteNumberOrNull(lon1);
+  const endLat = toFiniteNumberOrNull(lat2);
+  const endLng = toFiniteNumberOrNull(lon2);
+
+  if ([startLat, startLng, endLat, endLng].some((value) => value === null)) {
+    return null;
+  }
+
   const R = 6371; // Earth's radius in km
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLat = toRad(endLat - startLat);
+  const dLon = toRad(endLng - startLng);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
+    Math.cos(toRad(startLat)) *
+      Math.cos(toRad(endLat)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const clampedA = Math.min(1, Math.max(0, a));
+  const c = 2 * Math.atan2(Math.sqrt(clampedA), Math.sqrt(1 - clampedA));
   return R * c;
 };
 
@@ -150,6 +174,8 @@ const calculateUserBadges = (userData) => {
 module.exports = {
   generateId,
   calculateDistance,
+  toFiniteNumberOrNull,
+  roundDistance,
   timeAgo,
   calculateUserBadges,
 };
