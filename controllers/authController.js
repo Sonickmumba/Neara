@@ -1122,14 +1122,10 @@ exports.socialAuthSuccessRedirect = (req, res) => {
     return res.redirect(redirectUrl);
   }
 
-  const redirectUrl = user.phone_verified
-    ? buildFrontendUrl('/homeFeed', { social: 'success' })
-    : buildFrontendUrl('/verifyPhone', {
-        social: 'success',
-        returnTo: '/homeFeed',
-        allowSkip: 'true',
-        phone: user.phone || '',
-      });
+  const redirectUrl = buildFrontendUrl('/homeFeed', {
+    social: 'success',
+    phoneVerified: user.phone_verified ? 'true' : 'false',
+  });
 
   req.session.save((saveErr) => {
     if (saveErr) {

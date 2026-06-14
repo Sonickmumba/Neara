@@ -18,6 +18,7 @@
   "author": "Sonick Mumba",
   "license": "ISC",
   "dependencies": {
+    "africastalking": "^0.7.9",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.9.0",
     "connect-pg-simple": "^10.0.0",

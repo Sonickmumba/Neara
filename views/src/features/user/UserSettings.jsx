@@ -579,8 +579,25 @@ export function UserSettingsScreen() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
-                    <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900">
-                      {profile.phone || '—'}
+                    <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 flex items-center justify-between gap-3">
+                      <span>{profile.phone || '—'}</span>
+                      {!currentUser?.phone_verified && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate('/verifyPhone', {
+                              state: {
+                                phone: profile.phone || '',
+                                returnTo: '/homeFeed/settings',
+                                allowSkip: true,
+                              },
+                            })
+                          }
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Verify
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

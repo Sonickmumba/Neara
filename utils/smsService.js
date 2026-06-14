@@ -1,53 +1,52 @@
-const twilio = require('twilio');
+const africasTalkingProvider = require('./smsProviders/africasTalkingProvider');
+const twilioProvider = require('./smsProviders/twilioProvider');
 
-let twilioClient = null;
+const providers = {
+  africas_talking: africasTalkingProvider,
+  africastalking: africasTalkingProvider,
+  twilio: twilioProvider,
+};
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_FROM_NUMBER;
+const requestedProvider = String(process.env.SMS_PROVIDER || '')
+  .trim()
+  .toLowerCase();
 
-if (accountSid && authToken && fromNumber) {
-  try {
-    twilioClient = twilio(accountSid, authToken);
-    console.log('✅ Twilio SMS service configured');
-  } catch (error) {
-    console.error('❌ Failed to initialize Twilio client:', error.message);
-  }
+const getProviderName = () => {
+  if (requestedProvider && providers[requestedProvider]) return requestedProvider;
+  if (africasTalkingProvider.isConfigured()) return 'africas_talking';
+  if (twilioProvider.isConfigured()) return 'twilio';
+  return requestedProvider || 'none';
+};
+
+const providerName = getProviderName();
+const provider = providers[providerName] || null;
+
+if (provider?.isConfigured()) {
+  console.log(`SMS service (${providerName}) configured`);
+} else if (process.env.NODE_ENV === 'production') {
+  console.error(`SMS service (${providerName}) is not configured`);
 } else {
   console.warn(
-    '⚠️  Twilio SMS service not configured. Using fallback mode (allowed outside production).'
+    'SMS service not configured. Using fallback mode outside production.'
   );
 }
 
 async function sendVerificationSms(phone, code) {
-  if (!twilioClient || !fromNumber) {
+  const message = `Your Neara verification code is ${code}. It expires in 10 minutes.`;
+
+  if (!provider || !provider.isConfigured()) {
     return {
       ok: false,
       configured: false,
-      message: 'Twilio not configured',
+      provider: providerName,
+      message: 'SMS provider not configured',
     };
   }
 
-  try {
-    const message = await twilioClient.messages.create({
-      body: `Your Neara verification code is ${code}. It expires in 10 minutes.`,
-      from: fromNumber,
-      to: phone,
-    });
-
-    return {
-      ok: true,
-      configured: true,
-      sid: message.sid,
-    };
-  } catch (error) {
-    console.error('Twilio SMS send failed:', error.message);
-    return {
-      ok: false,
-      configured: true,
-      message: error.message,
-    };
-  }
+  return provider.sendSms({
+    to: phone,
+    message,
+  });
 }
 
 module.exports = {

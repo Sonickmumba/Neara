@@ -242,7 +242,7 @@ export function PhoneVerificationScreen() {
             </h1>
             <p className="text-gray-600">
               {step === 'phone'
-                ? 'Help us keep LocalLoop safe and trusted'
+                ? 'Help us keep Neara safe and trusted'
                 : `We sent a code to ${phoneNumber}`}
             </p>
           </div>

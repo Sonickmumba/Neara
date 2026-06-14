@@ -147,17 +147,10 @@ export function LoginSignup() {
         ).unwrap();
 
         toast.success('Welcome back!');
-        if (user?.phone_verified) {
-          navigate('/homeFeed');
-        } else {
-          navigate('/verifyPhone', {
-            state: {
-              phone: user?.phone || '',
-              returnTo: '/homeFeed',
-              allowSkip: true,
-            },
-          });
+        if (!user?.phone_verified) {
+          toast.info('You can verify your phone later from settings.');
         }
+        navigate('/homeFeed');
       }
     } catch (err) {
       toast.error(err);
@@ -229,17 +222,10 @@ export function LoginSignup() {
                     toast.success('Account created!');
                     dispatch(resetEmailVerification());
                     setShowVerificationUI(false);
-                    if (user?.phone_verified) {
-                      navigate('/homeFeed');
-                    } else {
-                      navigate('/verifyPhone', {
-                        state: {
-                          phone: user?.phone || '',
-                          returnTo: '/homeFeed',
-                          allowSkip: true,
-                        },
-                      });
+                    if (!user?.phone_verified) {
+                      toast.info('You can verify your phone later from settings.');
                     }
+                    navigate('/homeFeed');
                   })
                   .catch((err) => {
                     // if the failure is because the user already exists,
@@ -259,17 +245,12 @@ export function LoginSignup() {
                           toast.success('Welcome back!');
                           dispatch(resetEmailVerification());
                           setShowVerificationUI(false);
-                          if (user?.phone_verified) {
-                            navigate('/homeFeed');
-                          } else {
-                            navigate('/verifyPhone', {
-                              state: {
-                                phone: user?.phone || '',
-                                returnTo: '/homeFeed',
-                                allowSkip: true,
-                              },
-                            });
+                          if (!user?.phone_verified) {
+                            toast.info(
+                              'You can verify your phone later from settings.'
+                            );
                           }
+                          navigate('/homeFeed');
                         })
                         .catch((loginErr) => {
                           toast.error(loginErr || 'Login failed');

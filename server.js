@@ -20,14 +20,28 @@ const validateProductionEnv = () => {
     'TWILIO_AUTH_TOKEN',
     'TWILIO_FROM_NUMBER',
   ];
+  const requiredAfricasTalkingVars = [
+    'AFRICASTALKING_USERNAME',
+    'AFRICASTALKING_API_KEY',
+  ];
+  const smsProvider = String(process.env.SMS_PROVIDER || 'africas_talking')
+    .trim()
+    .toLowerCase();
   const hasEmailProvider =
     Boolean(String(process.env.RESEND_API_KEY || '').trim()) ||
     (Boolean(String(process.env.EMAIL_USER || '').trim()) &&
       Boolean(String(process.env.EMAIL_PASSWORD || '').trim()));
 
-  const missingVars = [...requiredCoreVars, ...requiredTwilioVars].filter(
-    (key) => !String(process.env[key] || '').trim()
+  const requiredSmsVars =
+    smsProvider === 'twilio' ? requiredTwilioVars : requiredAfricasTalkingVars;
+
+  const missingVars = [...requiredCoreVars, ...requiredSmsVars].filter((key) =>
+    !String(process.env[key] || '').trim()
   );
+
+  if (!['africas_talking', 'africastalking', 'twilio'].includes(smsProvider)) {
+    missingVars.push('SMS_PROVIDER must be africas_talking or twilio');
+  }
 
   if (!hasEmailProvider) {
     missingVars.push('RESEND_API_KEY or EMAIL_USER/EMAIL_PASSWORD');
