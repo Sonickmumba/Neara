@@ -1,7 +1,29 @@
 const { validationResult } = require('express-validator');
 const pool = require('../config/database');
-const { generateId, timeAgo } = require('../utils/helpers');
+const {
+  generateId,
+  timeAgo,
+  toFiniteNumberOrNull,
+  roundDistance,
+} = require('../utils/helpers');
 const { createNotification } = require('./notificationsController');
+
+const sqlDistanceExpression = (
+  refLatSql,
+  refLngSql,
+  targetLatSql = 'l.location_lat',
+  targetLngSql = 'l.location_lng'
+) => `
+  6371 * acos(
+    LEAST(1, GREATEST(-1,
+      cos(radians(${refLatSql})) *
+      cos(radians(${targetLatSql})) *
+      cos(radians(${targetLngSql}) - radians(${refLngSql})) +
+      sin(radians(${refLatSql})) *
+      sin(radians(${targetLatSql}))
+    ))
+  )
+`;
 
 /**
  * GET /listings
@@ -28,15 +50,28 @@ exports.getAllListings = async (req, res, next) => {
     /* ---------------------------
        Pagination safety
     ---------------------------- */
-    const safeLimit = Math.min(Number(limit) || 20, 50);
-    const offset = (Number(page) - 1) * safeLimit;
+    const parsedLimit = Number(limit);
+    const parsedPage = Number(page);
+    const safeLimit = Math.min(
+      Math.max(Math.floor(Number.isFinite(parsedLimit) ? parsedLimit : 20), 1),
+      50
+    );
+    const safePage = Math.max(
+      Math.floor(Number.isFinite(parsedPage) ? parsedPage : 1),
+      1
+    );
+    const offset = (safePage - 1) * safeLimit;
 
     /* ---------------------------
        Viewer reference location
        (viewer → listing relationship)
     ---------------------------- */
-    const refLat = lat ? Number(lat) : req.user?.location_lat;
-    const refLng = lng ? Number(lng) : req.user?.location_lng;
+    const queryLat = toFiniteNumberOrNull(lat);
+    const queryLng = toFiniteNumberOrNull(lng);
+    const userLat = toFiniteNumberOrNull(req.user?.location_lat);
+    const userLng = toFiniteNumberOrNull(req.user?.location_lng);
+    const refLat = queryLat ?? userLat;
+    const refLng = queryLng ?? userLng;
 
     const params = [];
     let idx = 1;
@@ -77,31 +112,16 @@ exports.getAllListings = async (req, res, next) => {
 
     if (refLat != null && refLng != null) {
       distanceSelect = `
-        (
-          6371 * acos(
-            cos(radians($${idx})) *
-            cos(radians(l.location_lat)) *
-            cos(radians(l.location_lng) - radians($${idx + 1})) +
-            sin(radians($${idx})) *
-            sin(radians(l.location_lat))
-          )
-        ) AS distance
+        (${sqlDistanceExpression(`$${idx}`, `$${idx + 1}`)}) AS distance
       `;
       params.push(refLat, refLng);
       idx += 2;
 
-      if (radius) {
-        const safeRadius = Math.min(Number(radius), 100);
+      const parsedRadius = toFiniteNumberOrNull(radius);
+      if (parsedRadius !== null && parsedRadius > 0) {
+        const safeRadius = Math.min(parsedRadius, 100);
         distanceWhere = `
-          AND (
-            6371 * acos(
-              cos(radians($${idx - 2})) *
-              cos(radians(l.location_lat)) *
-              cos(radians(l.location_lng) - radians($${idx - 1})) +
-              sin(radians($${idx - 2})) *
-              sin(radians(l.location_lat))
-            )
-          ) <= $${idx}
+          AND (${sqlDistanceExpression(`$${idx - 2}`, `$${idx - 1}`)}) <= $${idx}
         `;
         params.push(safeRadius);
         idx++;
@@ -167,13 +187,13 @@ exports.getAllListings = async (req, res, next) => {
     rows.forEach((listing) => {
       listing.timeAgo = timeAgo(listing.created_at);
       if (listing.distance !== null) {
-        listing.distance = Number(listing.distance.toFixed(1));
+        listing.distance = roundDistance(listing.distance);
       }
     });
 
     res.json({
       success: true,
-      page: Number(page),
+      page: safePage,
       limit: safeLimit,
       count: rows.length,
       data: rows,
@@ -193,18 +213,12 @@ exports.getListingsById = async (req, res, next) => {
     const { id } = req.params;
 
     // Use the viewer's stored location as the reference point for distance
-    const refLat = req.user?.location_lat;
-    const refLng = req.user?.location_lng;
+    const refLat = toFiniteNumberOrNull(req.user?.location_lat);
+    const refLng = toFiniteNumberOrNull(req.user?.location_lng);
     const hasLocation = refLat != null && refLng != null;
 
     const distanceExpr = hasLocation
-      ? `(
-          6371 * acos(
-            cos(radians($2)) * cos(radians(l.location_lat)) *
-            cos(radians(l.location_lng) - radians($3)) +
-            sin(radians($2)) * sin(radians(l.location_lat))
-          )
-        ) AS distance`
+      ? `(${sqlDistanceExpression('$2', '$3')}) AS distance`
       : 'NULL::double precision AS distance';
 
     const params = hasLocation ? [id, refLat, refLng] : [id];
@@ -244,7 +258,7 @@ exports.getListingsById = async (req, res, next) => {
 
     // Round to 1 decimal place — consistent with getAllListings
     if (listing.distance != null) {
-      listing.distance = Number(listing.distance.toFixed(1));
+      listing.distance = roundDistance(listing.distance);
     }
 
     res.json({ success: true, data: listing });
@@ -279,6 +293,11 @@ exports.getSimilarListings = async (req, res, next) => {
       });
     }
 
+    const listingDistanceExpr = sqlDistanceExpression(
+      'b.location_lat',
+      'b.location_lng'
+    );
+
     const { rows } = await pool.query(
       `
       WITH base AS (
@@ -299,15 +318,7 @@ exports.getSimilarListings = async (req, res, next) => {
             AND b.location_lng IS NOT NULL
             AND l.location_lat IS NOT NULL
             AND l.location_lng IS NOT NULL
-          THEN (
-            6371 * acos(
-              cos(radians(b.location_lat)) *
-              cos(radians(l.location_lat)) *
-              cos(radians(l.location_lng) - radians(b.location_lng)) +
-              sin(radians(b.location_lat)) *
-              sin(radians(l.location_lat))
-            )
-          )
+          THEN (${listingDistanceExpr})
           ELSE NULL
         END AS distance,
         (
@@ -321,15 +332,7 @@ exports.getSimilarListings = async (req, res, next) => {
             THEN GREATEST(
               0,
               1 - (
-                (
-                  6371 * acos(
-                    cos(radians(b.location_lat)) *
-                    cos(radians(l.location_lat)) *
-                    cos(radians(l.location_lng) - radians(b.location_lng)) +
-                    sin(radians(b.location_lat)) *
-                    sin(radians(l.location_lat))
-                  )
-                ) / 25
+                (${listingDistanceExpr}) / 25
               )
             )
             ELSE 0
@@ -354,7 +357,7 @@ exports.getSimilarListings = async (req, res, next) => {
     rows.forEach((listing) => {
       listing.timeAgo = timeAgo(listing.created_at);
       if (listing.distance !== null) {
-        listing.distance = Number(listing.distance.toFixed(1));
+        listing.distance = roundDistance(listing.distance);
       }
       delete listing.similarity_score;
     });
@@ -453,18 +456,12 @@ exports.createListing = async (req, res, next) => {
 
     // Fetch the listing back with author metadata and distance, matching the
     // shape returned by GET /api/listings so the frontend can display it immediately
-    const refLat = req.user?.location_lat;
-    const refLng = req.user?.location_lng;
+    const refLat = toFiniteNumberOrNull(req.user?.location_lat);
+    const refLng = toFiniteNumberOrNull(req.user?.location_lng);
     const hasLocation = refLat != null && refLng != null;
 
     const distanceExpr = hasLocation
-      ? `(
-          6371 * acos(
-            cos(radians($2)) * cos(radians(l.location_lat)) *
-            cos(radians(l.location_lng) - radians($3)) +
-            sin(radians($2)) * sin(radians(l.location_lat))
-          )
-        ) AS distance`
+      ? `(${sqlDistanceExpression('$2', '$3')}) AS distance`
       : 'NULL::double precision AS distance';
 
     const fetchParams = hasLocation ? [listingId, refLat, refLng] : [listingId];
@@ -491,7 +488,7 @@ exports.createListing = async (req, res, next) => {
 
     // Round to 1 decimal place — consistent with getAllListings
     if (listing.distance != null) {
-      listing.distance = Number(listing.distance.toFixed(1));
+      listing.distance = roundDistance(listing.distance);
     }
 
     /* ---------------------------
