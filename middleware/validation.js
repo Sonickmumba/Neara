@@ -39,8 +39,14 @@ const validateRegister = [
     .optional()
     .isArray()
     .withMessage('Interests must be an array'),
-  body('location_lat').optional(),
-  body('location_lng').optional(),
+  body('location_lat')
+    .optional()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('Invalid latitude'),
+  body('location_lng')
+    .optional()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('Invalid longitude'),
   body('neighborhood').optional().trim(),
   handleValidationErrors,
 ];
