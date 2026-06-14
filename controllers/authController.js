@@ -432,6 +432,10 @@ exports.sendVerificationEmail = async (req, res) => {
     const emailSent = await sendVerificationEmail(email, code);
 
     if (!emailSent) {
+      await pool.query('DELETE FROM email_verification_codes WHERE id = $1', [
+        codeId,
+      ]);
+
       return res.status(500).json({
         success: false,
         message: 'Failed to send verification email. Please try again.',
