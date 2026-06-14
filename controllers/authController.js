@@ -173,7 +173,12 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    if ((location_lat && !location_lng) || (!location_lat && location_lng)) {
+    const hasLocationLat =
+      location_lat !== undefined && location_lat !== null && location_lat !== '';
+    const hasLocationLng =
+      location_lng !== undefined && location_lng !== null && location_lng !== '';
+
+    if (hasLocationLat !== hasLocationLng) {
       return res.status(400).json({
         success: false,
         message: 'Both latitude and longitude must be provided',
