@@ -25,7 +25,7 @@ vi.mock('socket.io-client', () => ({
 }));
 
 vi.mock('../../services/api', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -111,6 +111,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSocket = makeMockSocket();
   makeEmptyApiResponses();
+  apiClient.patch.mockResolvedValue({ data: { success: true } });
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

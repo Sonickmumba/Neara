@@ -28,22 +28,31 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = new URL(
+    event.notification.data?.url || '/',
+    self.location.origin
+  ).href;
 
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
         // If the app is already open in a tab, focus it and navigate
         for (const client of clientList) {
           if ('focus' in client) {
-            client.focus();
-            if ('navigate' in client) client.navigate(targetUrl);
-            return;
+            if ('navigate' in client) {
+              return client.navigate(targetUrl).then((navigatedClient) => {
+                if (navigatedClient && 'focus' in navigatedClient) {
+                  return navigatedClient.focus();
+                }
+                return client.focus();
+              });
+            }
+            return client.focus();
           }
         }
         // Otherwise open a new tab
-        if (clients.openWindow) return clients.openWindow(targetUrl);
+        if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
       })
   );
 });

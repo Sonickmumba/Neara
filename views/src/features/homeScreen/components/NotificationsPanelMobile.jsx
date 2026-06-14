@@ -1,4 +1,3 @@
-import React from 'react';
 import { Bell } from 'lucide-react';
 
 export function NotificationsPanelMobile({ notifications }) {
@@ -10,7 +9,10 @@ export function NotificationsPanelMobile({ notifications }) {
       <ul className="space-y-2">
         {notifications.map((n) => (
           <li key={n.id} className="text-sm">
-            {n.message}
+            <span className="font-medium">{n.title}</span>
+            {n.description ? (
+              <span className="block text-gray-500">{n.description}</span>
+            ) : null}
           </li>
         ))}
       </ul>

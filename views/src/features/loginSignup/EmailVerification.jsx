@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { verifyEmail, resetEmailVerification } from './authSlice';
+import { verifyEmail } from './authSlice';
 import { Mail, AlertCircle, Check, Loader } from 'lucide-react';
 import { toast } from 'sonner';
 

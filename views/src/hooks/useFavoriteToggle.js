@@ -39,7 +39,7 @@ export function useFavoriteToggle({
           setIsFavorited(res.data.data.isFavorited);
           setHasChecked(true);
         }
-      } catch (err) {
+      } catch {
         // ignore auth errors; we just want the button to render
         if (mounted) setHasChecked(true);
       }
@@ -101,7 +101,7 @@ export function useFavoriteToggle({
       inFlightRef.current = false;
       setIsLoading(false);
     }
-  }, [listingId, isFavorited]);
+  }, [listingId, isFavorited, isLoggedIn, navigate]);
 
   return {
     isFavorited,

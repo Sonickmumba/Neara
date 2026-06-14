@@ -126,7 +126,32 @@ async function sendVerificationEmail(email, code) {
  */
 async function sendPasswordResetEmail(email, resetLink) {
   try {
-    if (!resend) {
+    const subject = 'Reset your Neara password';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center; color: white; border-radius: 10px 10px 0 0;">
+          <h1 style="margin: 0; font-size: 28px;">Neara</h1>
+        </div>
+
+        <div style="background: #f9f9f9; padding: 40px; border-radius: 0 0 10px 10px;">
+          <h2 style="color: #333; margin-top: 0;">Password Reset Request</h2>
+          <p style="color: #666; font-size: 16px; line-height: 1.6;">
+            We received a request to reset your password. Click the button below to create a new password.
+          </p>
+
+          <a href="${resetLink}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 30px 0; font-weight: bold;">
+            Reset Password
+          </a>
+
+          <p style="color: #666; font-size: 14px;">
+            This link will expire in 1 hour. If you didn't request a password reset, please ignore this email.
+          </p>
+        </div>
+      </div>
+    `;
+    const text = `We received a request to reset your Neara password.\n\nReset your password here: ${resetLink}\n\nThis link will expire in 1 hour. If you didn't request a password reset, please ignore this email.`;
+
+    if (!resend && !nodemailerTransporter) {
       console.log(
         '📝 Test mode: password reset link for',
         email,
@@ -136,32 +161,23 @@ async function sendPasswordResetEmail(email, resetLink) {
       return true;
     }
 
+    if (nodemailerTransporter) {
+      await nodemailerTransporter.sendMail({
+        from: FROM_ADDRESS,
+        to: email,
+        subject,
+        html,
+        text,
+      });
+      return true;
+    }
+
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: email,
-      subject: 'Reset your Neara password',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center; color: white; border-radius: 10px 10px 0 0;">
-            <h1 style="margin: 0; font-size: 28px;">Neara</h1>
-          </div>
-
-          <div style="background: #f9f9f9; padding: 40px; border-radius: 0 0 10px 10px;">
-            <h2 style="color: #333; margin-top: 0;">Password Reset Request</h2>
-            <p style="color: #666; font-size: 16px; line-height: 1.6;">
-              We received a request to reset your password. Click the button below to create a new password.
-            </p>
-
-            <a href="${resetLink}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 30px 0; font-weight: bold;">
-              Reset Password
-            </a>
-
-            <p style="color: #666; font-size: 14px;">
-              This link will expire in 24 hours. If you didn't request a password reset, please ignore this email.
-            </p>
-          </div>
-        </div>
-      `,
+      subject,
+      html,
+      text,
     });
 
     if (error) {

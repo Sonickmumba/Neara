@@ -1,35 +1,12 @@
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
-  Navigate,
   useNavigate,
 } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 
 import './App.css';
-
-import { Welcome } from './features/splash/Welcome';
-import { LocationPermission } from './features/splash/location/LocationPermission';
-import { InterestsSelectionScreen } from './features/interest/InterestsSelection';
-import { LoginSignup } from './features/loginSignup/LoginSignup';
-import { PhoneVerificationScreen } from './features/loginSignup/PhoneVerification';
-import { ResetPasswordPage } from './features/loginSignup/ResetPasswordPage';
-import { HomeFeed } from './features/homeScreen/HomeFeed';
-import { HomeFeedLayout } from './features/homeScreen/components/HomeFeedLayout';
-import { Favorites } from './features/homeScreen/Favorites';
-import { ListingDetails } from './features/homeScreen/ListingDetails';
-import { MapViewScreen } from './features/mapView/MapViewScreen';
-import { CreateListing } from './components/CreateListing';
-import { HomeSearchResult } from './features/homeScreen/components/HomeSearchResult';
-import { ChatConversationScreen } from './features/chat/ChatConversationScreen';
-import { MessageListScreen } from './features/chat/MessageListScreen';
-import { TradeNegotiation } from './features/trade/TradeNegotiation';
-import { TradeManagementScreen } from './features/trade/TradeManagement';
-import { ReviewRating } from './features/trade/ReviewRating';
-import { UserProfileScreen } from './features/user/UserProfile';
-import { UserSettingsScreen } from './features/user/UserSettings';
 
 import { RequireAuth } from './components/RequireAuth';
 import { RequirePhoneVerified } from './components/RequirePhoneVerified';
@@ -37,6 +14,87 @@ import { setupAuthInterceptor } from './services/api';
 import { fetchCurrentUser } from './features/loginSignup/authSlice';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { Toaster } from 'sonner';
+
+const lazyNamed = (loader, exportName) =>
+  lazy(() => loader().then((module) => ({ default: module[exportName] })));
+
+const Welcome = lazyNamed(() => import('./features/splash/Welcome'), 'Welcome');
+const LocationPermission = lazyNamed(
+  () => import('./features/splash/location/LocationPermission'),
+  'LocationPermission'
+);
+const InterestsSelectionScreen = lazyNamed(
+  () => import('./features/interest/InterestsSelection'),
+  'InterestsSelectionScreen'
+);
+const LoginSignup = lazyNamed(
+  () => import('./features/loginSignup/LoginSignup'),
+  'LoginSignup'
+);
+const PhoneVerificationScreen = lazyNamed(
+  () => import('./features/loginSignup/PhoneVerification'),
+  'PhoneVerificationScreen'
+);
+const ResetPasswordPage = lazyNamed(
+  () => import('./features/loginSignup/ResetPasswordPage'),
+  'ResetPasswordPage'
+);
+const HomeFeed = lazyNamed(
+  () => import('./features/homeScreen/HomeFeed'),
+  'HomeFeed'
+);
+const HomeFeedLayout = lazyNamed(
+  () => import('./features/homeScreen/components/HomeFeedLayout'),
+  'HomeFeedLayout'
+);
+const Favorites = lazyNamed(
+  () => import('./features/homeScreen/Favorites'),
+  'Favorites'
+);
+const ListingDetails = lazyNamed(
+  () => import('./features/homeScreen/ListingDetails'),
+  'ListingDetails'
+);
+const MapViewScreen = lazyNamed(
+  () => import('./features/mapView/MapViewScreen'),
+  'MapViewScreen'
+);
+const CreateListing = lazyNamed(
+  () => import('./components/CreateListing'),
+  'CreateListing'
+);
+const HomeSearchResult = lazyNamed(
+  () => import('./features/homeScreen/components/HomeSearchResult'),
+  'HomeSearchResult'
+);
+const ChatConversationScreen = lazyNamed(
+  () => import('./features/chat/ChatConversationScreen'),
+  'ChatConversationScreen'
+);
+const MessageListScreen = lazyNamed(
+  () => import('./features/chat/MessageListScreen'),
+  'MessageListScreen'
+);
+const TradeNegotiation = lazyNamed(
+  () => import('./features/trade/TradeNegotiation'),
+  'TradeNegotiation'
+);
+const TradeManagementScreen = lazyNamed(
+  () => import('./features/trade/TradeManagement'),
+  'TradeManagementScreen'
+);
+const ReviewRating = lazyNamed(
+  () => import('./features/trade/ReviewRating'),
+  'ReviewRating'
+);
+const UserProfileScreen = lazyNamed(
+  () => import('./features/user/UserProfile'),
+  'UserProfileScreen'
+);
+const UserSettingsScreen = lazyNamed(
+  () => import('./features/user/UserSettings'),
+  'UserSettingsScreen'
+);
 
 function App() {
   const navigate = useNavigate();
@@ -47,7 +105,7 @@ function App() {
 
   // Setup global auth interceptor for API calls
   useEffect(() => {
-    setupAuthInterceptor(navigate);
+    return setupAuthInterceptor(navigate);
   }, [navigate]);
 
   useEffect(() => {
@@ -58,7 +116,14 @@ function App() {
     <>
       <Toaster position="top-center" richColors />
       <div className="min-h-screen bg-white">
-        <Routes>
+        <Suspense
+          fallback={
+            <div className="min-h-screen flex items-center justify-center text-sm text-gray-600">
+              Loading...
+            </div>
+          }
+        >
+          <Routes>
           <Route path="/" element={<Welcome />} />
           <Route path="/location" element={<LocationPermission />} />
           <Route
@@ -163,7 +228,8 @@ function App() {
             />
             {/* additional nested paths (notifications, user-profile, etc.) can go here */}
           </Route>
-        </Routes>
+          </Routes>
+        </Suspense>
       </div>
     </>
   );

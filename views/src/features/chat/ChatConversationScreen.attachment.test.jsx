@@ -34,7 +34,7 @@ vi.mock('socket.io-client', () => ({
 }));
 
 vi.mock('../../services/api', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -129,14 +129,15 @@ function renderScreen() {
 }
 
 // jsdom does not implement createObjectURL / revokeObjectURL
-global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
-global.URL.revokeObjectURL = vi.fn();
+globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+globalThis.URL.revokeObjectURL = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockSocket = makeMockSocket();
   makeEmptyApiResponses();
-  global.URL.createObjectURL.mockReturnValue('blob:mock-url');
+  apiClient.patch.mockResolvedValue({ data: { success: true } });
+  globalThis.URL.createObjectURL.mockReturnValue('blob:mock-url');
   // jsdom does not implement scrollIntoView — mock it globally
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
 });

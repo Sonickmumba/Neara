@@ -577,12 +577,27 @@ exports.updateListing = async (req, res, next) => {
     const params = [];
     let idx = 1;
 
-    ['title', 'description', 'status', 'image_url'].forEach((field) => {
+    ['title', 'description', 'status'].forEach((field) => {
       if (req.body[field] !== undefined) {
         fields.push(`${field} = $${idx++}`);
         params.push(req.body[field]);
       }
     });
+
+    if (req.body.image_urls !== undefined || req.body.image_url !== undefined) {
+      let imageUrls = [];
+
+      if (req.body.image_urls !== undefined) {
+        imageUrls = Array.isArray(req.body.image_urls)
+          ? req.body.image_urls
+          : JSON.parse(req.body.image_urls);
+      } else if (req.body.image_url) {
+        imageUrls = [req.body.image_url];
+      }
+
+      fields.push(`image_urls = $${idx++}`);
+      params.push(JSON.stringify(imageUrls));
+    }
 
     if (!fields.length) {
       return res

@@ -7,14 +7,51 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
+const typePreferenceColumn = {
+  message: 'new_messages',
+  trade: 'trade_updates',
+  review: 'review_alerts',
+  listing: 'new_listings',
+};
+
+async function shouldSendPush(userId, type) {
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT push_enabled, new_messages, trade_updates, review_alerts, new_listings
+      FROM notification_settings
+      WHERE user_id = $1
+      `,
+      [userId]
+    );
+
+    if (!rows.length) return true;
+
+    const settings = rows[0];
+    if (settings.push_enabled === false) return false;
+
+    const preferenceColumn = typePreferenceColumn[type];
+    if (preferenceColumn && settings[preferenceColumn] === false) {
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[push] settings fetch error:', err.message);
+    return true;
+  }
+}
+
 /**
  * Send a push notification to all subscribed devices for a user.
  * Fire-and-forget — never throws; expired subscriptions are auto-deleted.
  *
  * @param {string} userId
- * @param {{ title: string, body: string, url?: string, conversationId?: string }} payload
+ * @param {{ type?: string, title: string, body: string, url?: string, conversationId?: string }} payload
  */
 async function sendPushToUser(userId, payload) {
+  if (!(await shouldSendPush(userId, payload?.type))) return;
+
   let subscriptions;
   try {
     const result = await pool.query(

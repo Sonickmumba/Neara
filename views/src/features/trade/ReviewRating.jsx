@@ -45,7 +45,6 @@ export function ReviewRating() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [reviewText, setReviewText] = useState('');
   const [photos, setPhotos] = useState([]);
-  const [isPublic, setIsPublic] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [trade, setTrade] = useState(null);
   const [status, setStatus] = useState('loading');

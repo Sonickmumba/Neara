@@ -81,13 +81,38 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TABLE IF NOT EXISTS email_verification_codes (
     id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
-    code VARCHAR(6) NOT NULL,
+    code VARCHAR(6),
+    code_hash VARCHAR(128),
+    attempts INT DEFAULT 0,
+    max_attempts INT DEFAULT 5,
     expires_at TIMESTAMP NOT NULL,
+    verified_at TIMESTAMP,
+    consumed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_verification_email ON email_verification_codes(email);
 CREATE INDEX IF NOT EXISTS idx_email_verification_expires ON email_verification_codes(expires_at);
+
+-- =====================================================
+-- PASSWORD RESET TOKENS
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    token_hash VARCHAR(128) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_user_created
+ON password_reset_tokens(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_expires
+ON password_reset_tokens(expires_at);
 
 -- =====================================================
 -- PHONE VERIFICATION CODES

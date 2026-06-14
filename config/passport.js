@@ -55,6 +55,15 @@ const toSessionUser = (row) => ({
   neighborhood: row.neighborhood,
 });
 
+const hasVerifiedGoogleEmail = (profile) =>
+  profile?._json?.email_verified === true ||
+  profile?.emails?.some((email) => email.verified === true);
+
+const hasVerifiedFacebookEmail = (profile) =>
+  profile?._json?.verified === true ||
+  profile?._json?.is_verified === true ||
+  profile?.emails?.some((email) => email.verified === true);
+
 const findOrCreateSocialUser = async ({
   provider,
   providerUserId,
@@ -73,6 +82,12 @@ const findOrCreateSocialUser = async ({
   if (!normalizedEmail) {
     const error = new Error('Email is required from social provider');
     error.code = 'OAUTH_EMAIL_REQUIRED';
+    throw error;
+  }
+
+  if (!emailVerified) {
+    const error = new Error('Verified email is required from social provider');
+    error.code = 'OAUTH_EMAIL_UNVERIFIED';
     throw error;
   }
 
@@ -276,7 +291,7 @@ if (googleClientId && googleClientSecret) {
               emails: profile?.emails || [],
               photos: profile?.photos || [],
             },
-            emailVerified: true,
+            emailVerified: hasVerifiedGoogleEmail(profile),
           });
 
           return done(null, user);
@@ -317,7 +332,7 @@ if (facebookAppId && facebookAppSecret) {
               emails: profile?.emails || [],
               photos: profile?.photos || [],
             },
-            emailVerified: true,
+            emailVerified: hasVerifiedFacebookEmail(profile),
           });
 
           return done(null, user);

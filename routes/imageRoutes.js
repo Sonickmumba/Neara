@@ -50,14 +50,14 @@ router.delete('/:publicId', ensureAuth, async (req, res) => {
   try {
     const { publicId } = req.params;
 
-    if (!publicId) {
+    if (!publicId || !/^[a-zA-Z0-9_-]+$/.test(publicId)) {
       return res.status(400).json({
         success: false,
-        message: 'Public ID is required',
+        message: 'Valid public ID is required',
       });
     }
 
-    await deleteFromCloudinary(publicId);
+    await deleteFromCloudinary(`neara-listings/${publicId}`);
 
     res.json({
       success: true,

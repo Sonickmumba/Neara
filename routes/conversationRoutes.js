@@ -29,6 +29,13 @@ router.get('/:conversationId', conversationsController.getConversationById);
 // Get messages in conversation
 router.get('/:conversationId/messages', conversationsController.getMessages);
 
+// Mark conversation messages and related message notifications as read
+router.patch(
+  '/:conversationId/read',
+  validateConversationId,
+  conversationsController.markConversationAsRead
+);
+
 // Upload attachment (image or document) to Cloudinary
 router.post(
   '/:conversationId/attachments',

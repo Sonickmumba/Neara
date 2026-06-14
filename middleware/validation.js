@@ -28,8 +28,12 @@ const validateRegister = [
   body('email').trim().isEmail().withMessage('Valid email is required'),
   // .normalizeEmail(),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters'),
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage(
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    ),
   body('phone').optional().trim(),
   body('interests')
     .optional()
@@ -100,7 +104,7 @@ const validateCreateListing = [
   body('status')
     .optional()
     .trim()
-    .isIn(['available', 'pending', 'traded'])
+    .isIn(['active', 'completed', 'cancelled'])
     .withMessage('Invalid status'),
   body('image_url').optional().trim(),
   body('image_urls')
@@ -150,8 +154,20 @@ const validateUpdateListing = [
   body('status')
     .optional()
     .trim()
-    .isIn(['available', 'pending', 'traded'])
+    .isIn(['active', 'completed', 'cancelled'])
     .withMessage('Invalid status'),
+  body('image_urls')
+    .optional()
+    .custom((value) => {
+      const urls = Array.isArray(value) ? value : JSON.parse(value);
+      return (
+        Array.isArray(urls) &&
+        urls.every(
+          (url) => typeof url === 'string' && /^https?:\/\/.+/.test(url)
+        )
+      );
+    })
+    .withMessage('image_urls must be a valid array of URLs'),
   handleValidationErrors,
 ];
 

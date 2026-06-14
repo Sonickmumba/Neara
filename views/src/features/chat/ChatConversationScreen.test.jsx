@@ -37,7 +37,7 @@ vi.mock('socket.io-client', () => ({
 }));
 
 vi.mock('../../services/api', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -137,6 +137,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSocket = createMockSocket();
   setupDefaultMocks();
+  apiClient.patch.mockResolvedValue({ data: { success: true } });
 
   // jsdom does not implement scrollIntoView — mock it globally
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -419,6 +420,32 @@ describe('ChatConversationScreen — Socket.IO new_message', () => {
     await waitFor(() => {
       expect(screen.getByText('Socket says hi')).toBeInTheDocument();
     });
+  });
+
+  it('marks the conversation as read when a visible partner message arrives', async () => {
+    renderScreen();
+    await waitFor(() => screen.getByText('Bob'));
+    await waitFor(() =>
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        '/api/conversations/conv-1/read'
+      )
+    );
+
+    apiClient.patch.mockClear();
+
+    mockSocket._trigger(
+      'new_message',
+      makeApiMessage({
+        id: 'socket-msg-read',
+        content: 'Seen while open',
+      })
+    );
+
+    await waitFor(() =>
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        '/api/conversations/conv-1/read'
+      )
+    );
   });
 
   it('does not duplicate a message that was already added optimistically', async () => {

@@ -1,9 +1,6 @@
-const pool = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
+const pool = require('../config/database');
+const { generateId } = require('./helpers');
 
-/**
- * Create a notification for a user (PostgreSQL)
- */
 async function createNotification(
   userId,
   type,
@@ -13,65 +10,46 @@ async function createNotification(
   referenceType = null,
   data = null
 ) {
-  try {
-    // 1. Check notification settings
-    const settingsResult = await pool.query(
-      `
-      SELECT push_enabled
-      FROM notification_settings
-      WHERE user_id = $1
-      `,
-      [userId]
-    );
+  const { rows } = await pool.query(
+    `
+    INSERT INTO notifications (
+      id,
+      user_id,
+      type,
+      title,
+      description,
+      reference_id,
+      reference_type,
+      data
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING *
+    `,
+    [
+      generateId(),
+      userId,
+      type,
+      title,
+      description,
+      referenceId,
+      referenceType,
+      data,
+    ]
+  );
 
-    const pushEnabled =
-      settingsResult.rows.length === 0 ||
-      settingsResult.rows[0].push_enabled === true;
-
-    if (!pushEnabled) return null;
-
-    // 2. Insert notification
-    const notificationId = uuidv4();
-
-    const insertResult = await pool.query(
-      `
-      INSERT INTO notifications (
-        id,
-        user_id,
-        type,
-        title,
-        description,
-        reference_id,
-        reference_type,
-        data
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id
-      `,
-      [
-        notificationId,
-        userId,
-        type,
-        title,
-        description,
-        referenceId,
-        referenceType,
-        data, // JSONB (NO stringify)
-      ]
-    );
-
-    return insertResult.rows[0].id;
-  } catch (error) {
-    console.error('Error creating notification:', error);
-    return null;
-  }
+  return rows[0];
 }
 
-async function notifyNewMessage(recipientId, senderId, senderName, conversationId) {
+async function notifyNewMessage(
+  recipientId,
+  senderId,
+  senderName,
+  conversationId
+) {
   return createNotification(
     recipientId,
     'message',
-    'New Message',
+    `New message from ${senderName}`,
     `${senderName} sent you a message`,
     conversationId,
     'conversation',
@@ -90,7 +68,7 @@ async function notifyTradeUpdate(userId, tradeId, status, listingTitle) {
   return createNotification(
     userId,
     'trade',
-    statusMessages[status] || 'Trade Update',
+    statusMessages[status] || 'Trade update',
     `Trade for "${listingTitle}" has been ${status}`,
     tradeId,
     'trade',
@@ -102,7 +80,7 @@ async function notifyNewReview(userId, reviewerId, reviewerName, rating, tradeId
   return createNotification(
     userId,
     'review',
-    'New Review',
+    'New review received',
     `${reviewerName} left you a ${rating}-star review`,
     tradeId,
     'review',
@@ -117,38 +95,61 @@ async function notifyUsersNearbyListing(
   listingLng,
   creatorId
 ) {
-  const usersResult = await pool.query(
+  if (listingLat == null || listingLng == null) return [];
+
+  const { rows: users } = await pool.query(
     `
-    SELECT u.id,
-           ST_Distance(
-             geography(ST_MakePoint(u.location_lng, u.location_lat)),
-             geography(ST_MakePoint($2, $1))
-           ) AS distance
-    FROM users u
-    WHERE ST_DWithin(
-      geography(ST_MakePoint(u.location_lng, u.location_lat)),
-      geography(ST_MakePoint($2, $1)),
-      10000
-    )
-    AND u.id != $3
+    SELECT
+      id,
+      (
+        6371 * acos(
+          LEAST(
+            1,
+            GREATEST(
+              -1,
+              cos(radians($1)) *
+              cos(radians(location_lat)) *
+              cos(radians(location_lng) - radians($2)) +
+              sin(radians($1)) *
+              sin(radians(location_lat))
+            )
+          )
+        )
+      ) AS distance
+    FROM users
+    WHERE id <> $3
+      AND location_lat IS NOT NULL
+      AND location_lng IS NOT NULL
+    ORDER BY distance ASC
+    LIMIT 50
     `,
     [listingLat, listingLng, creatorId]
   );
 
-  for (const user of usersResult.rows) {
-    await createNotification(
-      user.id,
-      'listing',
-      'New Listing Nearby',
-      `"${listingTitle}" posted ${(user.distance / 1000).toFixed(1)} km from you`,
-      listingId,
-      'listing',
-      {
-        listingTitle,
-        distance: user.distance,
-      }
-    );
-  }
+  const nearbyUsers = users.filter((user) => Number(user.distance) <= 10);
+
+  return Promise.all(
+    nearbyUsers.map((user) =>
+      createNotification(
+        user.id,
+        'listing',
+        'New listing nearby',
+        `"${listingTitle}" posted ${Number(user.distance).toFixed(1)} km from you`,
+        listingId,
+        'listing',
+        {
+          listingTitle,
+          distance: Number(user.distance),
+        }
+      )
+    )
+  );
 }
 
-
+module.exports = {
+  createNotification,
+  notifyNewMessage,
+  notifyTradeUpdate,
+  notifyNewReview,
+  notifyUsersNearbyListing,
+};

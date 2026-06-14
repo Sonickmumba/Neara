@@ -3,6 +3,36 @@ const { generateId, timeAgo } = require('../utils/helpers');
 const { uploadToCloudinary } = require('../utils/imageService');
 const { sendPushToUser } = require('../utils/pushService');
 
+async function markConversationReadForUser(db, conversationId, userId) {
+  const messagesResult = await db.query(
+    `
+    UPDATE messages
+    SET is_read = true
+    WHERE conversation_id = $1
+      AND sender_id <> $2
+      AND is_read = false
+    `,
+    [conversationId, userId]
+  );
+
+  const notificationsResult = await db.query(
+    `
+    UPDATE notifications
+    SET is_read = true
+    WHERE user_id = $2
+      AND type = 'message'
+      AND reference_id = $1
+      AND is_read = false
+    `,
+    [conversationId, userId]
+  );
+
+  return {
+    messagesRead: messagesResult.rowCount,
+    notificationsRead: notificationsResult.rowCount,
+  };
+}
+
 // Get user's conversations
 exports.getUserConversations = async (req, res, next) => {
   try {
@@ -341,10 +371,7 @@ exports.getMessages = async (req, res, next) => {
 
     // Mark messages as read
     if (!before) {
-      await pool.query(
-        `UPDATE messages SET is_read = true WHERE conversation_id = $1 AND sender_id <> $2`,
-        [conversationId, userId]
-      );
+      await markConversationReadForUser(pool, conversationId, userId);
     }
 
     res.json({
@@ -356,6 +383,54 @@ exports.getMessages = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+exports.markConversationAsRead = async (req, res, next) => {
+  const client = await pool.connect();
+
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `
+      SELECT id
+      FROM conversations
+      WHERE id = $1
+        AND (participant1_id = $2 OR participant2_id = $2)
+      `,
+      [conversationId, userId]
+    );
+
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        success: false,
+        message: 'Access to conversation denied',
+      });
+    }
+
+    const counts = await markConversationReadForUser(
+      client,
+      conversationId,
+      userId
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Conversation marked as read',
+      data: counts,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
   }
 };
 
@@ -408,12 +483,6 @@ exports.sendMessage = async (req, res, next) => {
     // Update conversation's last_message_at
     await pool.query(
       `UPDATE conversations SET last_message_at = NOW() WHERE id = $1`,
-      [conversationId]
-    );
-
-    // Increment listing responses count in the listing table
-    await pool.query(
-      'UPDATE listings SET responses_count = responses_count + 1 WHERE id = (SELECT listing_id FROM conversations WHERE id = $1)',
       [conversationId]
     );
 
@@ -481,9 +550,10 @@ exports.sendMessage = async (req, res, next) => {
 
       // Fire-and-forget — does not block the HTTP response
       sendPushToUser(recipientId, {
+        type: 'message',
         title: `New message from ${senderName}`,
         body: pushBody,
-        url: `/messages/${conversationId}`,
+        url: `/homeFeed/chat-conversation/${conversationId}`,
         conversationId,
       });
     }

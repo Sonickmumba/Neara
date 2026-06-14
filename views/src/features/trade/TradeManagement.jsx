@@ -52,11 +52,6 @@ function formatTime(dateLike) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function buildDateTime(tradeDate, tradeTime) {
-  if (!tradeDate || !tradeTime) return null;
-  return `${tradeDate}T${tradeTime}`;
-}
-
 export function TradeManagementScreen() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,7 +109,6 @@ export function TradeManagementScreen() {
       .toUpperCase();
   }, [partnerName]);
 
-  const dateTime = buildDateTime(trade?.trade_date, trade?.trade_time);
   const statusMeta = STATUS_META[trade?.status] || {
     label: trade?.status || 'Unknown',
     classes: 'bg-gray-100 text-gray-700',

@@ -11,6 +11,46 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
+let csrfToken = null;
+let csrfTokenPromise = null;
+
+const fetchCsrfToken = async () => {
+  if (csrfToken) return csrfToken;
+
+  if (!csrfTokenPromise) {
+    csrfTokenPromise = apiClient
+      .get('/api/csrf-token', {
+        skipAuthRedirect: true,
+        skipCsrf: true,
+      })
+      .then((response) => {
+        csrfToken = response.data?.csrfToken || null;
+        return csrfToken;
+      })
+      .finally(() => {
+        csrfTokenPromise = null;
+      });
+  }
+
+  return csrfTokenPromise;
+};
+
+apiClient.interceptors.request.use(async (config) => {
+  const method = String(config.method || 'get').toLowerCase();
+
+  if (!config.skipCsrf && UNSAFE_METHODS.has(method)) {
+    const token = await fetchCsrfToken();
+
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers['X-CSRF-Token'] = token;
+    }
+  }
+
+  return config;
+});
+
 // Routes where a 401 should never trigger a redirect to /loginSignup.
 // These pages are intentionally public and unauthenticated 401s are expected
 // (e.g. fetchCurrentUser session bootstrap on /reset-password).
@@ -25,7 +65,7 @@ const PUBLIC_PATHS = [
 
 // Global 401 interceptor setup function
 export const setupAuthInterceptor = (navigate) => {
-  apiClient.interceptors.response.use(
+  const interceptorId = apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
       const is401 = error.response?.status === 401;
@@ -43,6 +83,8 @@ export const setupAuthInterceptor = (navigate) => {
       return Promise.reject(error);
     }
   );
+
+  return () => apiClient.interceptors.response.eject(interceptorId);
 };
 
 export default apiClient;

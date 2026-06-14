@@ -68,7 +68,6 @@ export function ChatConversationScreen() {
   const [typingUsers, setTypingUsers] = useState(new Map()); // Track multiple typing users
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   // Set of userIds currently online in this conversation (populated by socket presence events)
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
@@ -295,6 +294,16 @@ export function ChatConversationScreen() {
     [conversationId]
   );
 
+  const markConversationRead = useCallback(async () => {
+    if (!conversationId) return;
+
+    try {
+      await apiClient.patch(`/api/conversations/${conversationId}/read`);
+    } catch (err) {
+      console.error('Failed to mark conversation as read:', err);
+    }
+  }, [conversationId]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -323,6 +332,7 @@ export function ChatConversationScreen() {
         setHasMoreMessages(firstPage.hasMore);
 
         setMessages(rows.map((m) => toUiMessage(m, currentUser?.id)));
+        void markConversationRead();
       } catch (err) {
         if (!mounted) return;
         console.error('Failed loading conversation:', err);
@@ -337,7 +347,7 @@ export function ChatConversationScreen() {
     return () => {
       mounted = false;
     };
-  }, [conversationId, currentUser?.id, fetchMessagesPage]);
+  }, [conversationId, currentUser?.id, fetchMessagesPage, markConversationRead]);
 
   const loadOlderMessages = async () => {
     if (
@@ -411,13 +421,11 @@ export function ChatConversationScreen() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      setIsConnected(true);
       // Send userId so the server can track our presence
       socket.emit('join-conversation', { conversationId, userId: currentUser?.id });
     });
 
     socket.on('disconnect', () => {
-      setIsConnected(false);
       setTypingUsers(new Map());
       setOnlineUserIds(new Set()); // clear presence on disconnect
     });
@@ -455,6 +463,10 @@ export function ChatConversationScreen() {
 
         return [...prev, normalizedIncoming];
       });
+
+      if (String(incomingMessage.sender_id) !== String(currentUser?.id)) {
+        void markConversationRead();
+      }
     });
 
     // Handle user typing
@@ -527,10 +539,12 @@ export function ChatConversationScreen() {
       });
     });
 
+    const typingTimeouts = typingTimeoutsRef.current;
+
     return () => {
       // Cleanup: clear all typing timeouts
-      typingTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
-      typingTimeoutsRef.current.clear();
+      typingTimeouts.forEach((timeout) => clearTimeout(timeout));
+      typingTimeouts.clear();
 
       socket.off('new_message');
       socket.off('user_typing');
@@ -541,7 +555,7 @@ export function ChatConversationScreen() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [conversationId, currentUser?.id]);
+  }, [conversationId, currentUser?.id, markConversationRead]);
 
   const handleSend = async () => {
     const trimmed = messageText.trim();
