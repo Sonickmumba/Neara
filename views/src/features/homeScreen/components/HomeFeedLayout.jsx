@@ -21,7 +21,9 @@ export function HomeFeedLayout() {
   return (
     <div className="min-h-screen pb-16">
       <Outlet />
-      {shouldShowBottomNav && <BottomNav navigate={navigate} />}
+      {shouldShowBottomNav && (
+        <BottomNav navigate={navigate} pathname={location.pathname} />
+      )}
     </div>
   );
 }
